@@ -2,23 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { DailyAnalytics } from "@/lib/types";
 import Dashboard from "@/components/Dashboard";
 
 export default function AnalyticsPage() {
   const { data: session, status: authStatus } = useSession();
-  const router = useRouter();
   const [todayData, setTodayData] = useState<DailyAnalytics | null>(null);
   const [allData, setAllData] = useState<DailyAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authStatus === "loading") return;
-    if (!session) {
-      router.push("/");
-      return;
-    }
+    if (authStatus !== "authenticated") return;
 
     const fetchData = async () => {
       setLoading(true);
@@ -38,9 +32,9 @@ export default function AnalyticsPage() {
       }
     };
     fetchData();
-  }, [session, authStatus, router]);
+  }, [session, authStatus]);
 
-  if (authStatus === "loading" || loading) {
+  if (authStatus !== "authenticated" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
         <div className="text-[#A08060] font-semibold">Loading...</div>
