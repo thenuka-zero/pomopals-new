@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "PomoPals - Pomodoro Timer with Friends",
-  description: "A collaborative Pomodoro timer. Focus together, track your progress, and stay productive.",
+  description: "A cute collaborative Pomodoro timer. Focus together, track your progress, and stay productive with friends.",
 };
 
 export default function RootLayout({
@@ -15,10 +15,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="antialiased">
         <Providers>
           <Navbar />
-          <main className="min-h-[calc(100vh-57px)]">{children}</main>
+          <main>{children}</main>
         </Providers>
       </body>
     </html>

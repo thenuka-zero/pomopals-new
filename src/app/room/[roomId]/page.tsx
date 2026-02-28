@@ -15,13 +15,12 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
 
   if (status === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-57px)]">
-        <div className="text-gray-400">Loading...</div>
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="text-[#A08060] font-semibold">Loading...</div>
       </div>
     );
   }
 
-  // If authenticated, show room directly
   if (session?.user) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -34,7 +33,6 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
     );
   }
 
-  // If joined as guest, show room
   if (joinedAsGuest && guestName) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -47,44 +45,42 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
     );
   }
 
-  // Otherwise show join prompt
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-57px)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Join Room</h1>
-          <p className="text-gray-400 text-sm">
-            Room Code: <span className="font-mono text-white">{roomId}</span>
+          <h1 className="text-2xl font-bold text-[#3D2C2C] mb-2">Join Room</h1>
+          <p className="text-[#8B7355] text-sm">
+            Room Code: <span className="font-mono font-bold text-[#E54B4B]">{roomId}</span>
           </p>
         </div>
 
-        {/* Guest join */}
         <div className="space-y-3">
           <input
             type="text"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-center focus:outline-none focus:border-red-500"
+            className="w-full bg-white border-2 border-[#F0E6D3] rounded-xl px-4 py-3 text-[#3D2C2C] text-center focus:outline-none focus:border-[#E54B4B] transition-colors"
             placeholder="Your name"
           />
           <button
             onClick={() => setJoinedAsGuest(true)}
             disabled={!guestName.trim()}
-            className="w-full py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="w-full py-3 bg-[#E54B4B] text-white rounded-xl font-bold hover:bg-[#D43D3D] transition-colors disabled:opacity-50 shadow-md shadow-[#E54B4B]/20"
           >
             Join as Guest
           </button>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex-1 h-px bg-gray-800" />
-          <span className="text-gray-500 text-sm">or</span>
-          <div className="flex-1 h-px bg-gray-800" />
+          <div className="flex-1 h-px bg-[#F0E6D3]" />
+          <span className="text-[#A08060] text-sm font-semibold">or</span>
+          <div className="flex-1 h-px bg-[#F0E6D3]" />
         </div>
 
         <button
           onClick={() => setShowAuth(true)}
-          className="w-full py-3 bg-gray-800 border border-gray-700 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+          className="w-full py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-xl font-bold hover:border-[#E54B4B]/30 hover:bg-[#FFF8F0] transition-all"
         >
           Sign In to Join
         </button>

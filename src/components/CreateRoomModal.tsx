@@ -41,18 +41,18 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-semibold text-white mb-6">Create a Room</h2>
+    <div className="fixed inset-0 bg-[#3D2C2C]/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-[#3D2C2C] mb-6">Create a Room</h2>
 
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Room Name</label>
+            <label className="block text-sm text-[#5C4033] font-semibold mb-1">Room Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-red-500"
+              className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
               placeholder="e.g. Study Session"
               required
             />
@@ -60,25 +60,25 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Focus (min)</label>
+              <label className="block text-sm text-[#5C4033] font-semibold mb-1">Focus (min)</label>
               <input
                 type="number"
                 min={1}
                 max={120}
                 value={settings.workDuration}
                 onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) || 25 })}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-red-500"
+                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Break (min)</label>
+              <label className="block text-sm text-[#5C4033] font-semibold mb-1">Break (min)</label>
               <input
                 type="number"
                 min={1}
                 max={60}
                 value={settings.shortBreakDuration}
                 onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-green-500"
+                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
               />
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="w-full py-3 bg-[#E54B4B] text-white rounded-xl font-bold hover:bg-[#D43D3D] transition-colors disabled:opacity-50 shadow-md shadow-[#E54B4B]/20"
           >
             {loading ? "Creating..." : "Create Room"}
           </button>

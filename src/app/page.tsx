@@ -1,121 +1,142 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
-import Timer from "@/components/Timer";
-import Settings from "@/components/Settings";
-import CreateRoomModal from "@/components/CreateRoomModal";
+import { useState } from "react";
+import TomatoMascot from "@/components/TomatoMascot";
+import AuthModal from "@/components/AuthModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
-import { useTimerStore } from "@/store/timer-store";
-import { v4 as uuidv4 } from "uuid";
 
-export default function Home() {
+export default function LandingPage() {
   const { data: session } = useSession();
-  const [showSettings, setShowSettings] = useState(false);
-  const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
-  const { sessions, status, phase, settings, timeRemaining } = useTimerStore();
-
-  // Record completed sessions to analytics API
-  useEffect(() => {
-    if (!session?.user?.id || sessions.length === 0) return;
-
-    const lastSession = sessions[sessions.length - 1];
-    if (lastSession.userId === "") {
-      // Mark with user ID and send to server
-      lastSession.userId = session.user.id;
-      fetch("/api/analytics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lastSession),
-      });
-    }
-  }, [sessions, session]);
-
-  // Record partial sessions when user navigates away
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (status === "running" && phase === "work" && session?.user?.id) {
-        const totalDuration = settings.workDuration * 60;
-        const elapsed = totalDuration - timeRemaining;
-        if (elapsed > 0) {
-          const partialSession = {
-            id: uuidv4(),
-            userId: session.user.id,
-            startedAt: new Date(Date.now() - elapsed * 1000).toISOString(),
-            endedAt: new Date().toISOString(),
-            phase: "work",
-            plannedDuration: totalDuration,
-            actualDuration: elapsed,
-            completed: false,
-            completionPercentage: Math.round((elapsed / totalDuration) * 100),
-            date: new Date().toISOString().split("T")[0],
-          };
-          navigator.sendBeacon(
-            "/api/analytics",
-            new Blob([JSON.stringify(partialSession)], { type: "application/json" })
-          );
-        }
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [status, phase, settings, timeRemaining, session]);
-
-  const userId = session?.user?.id || "guest-" + Math.random().toString(36).slice(2);
-  const userName = session?.user?.name || "Guest";
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-57px)] px-4 py-8">
-      <div className="w-full max-w-lg flex flex-col items-center gap-8">
-        {/* Timer */}
-        <Timer />
+    <div className="min-h-[calc(100vh-64px)] flex flex-col">
+      {/* Hero Section */}
+      <section className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
+        {/* Floating mascot with bounce animation */}
+        <div className="animate-bounce-slow mb-6">
+          <TomatoMascot size={180} />
+        </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap justify-center gap-3">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+        <h1 className="text-5xl sm:text-6xl font-extrabold text-[#3D2C2C] tracking-tight mb-4">
+          Pomo<span className="text-[#E54B4B]">Pals</span>
+        </h1>
+
+        <p className="text-lg sm:text-xl text-[#8B7355] max-w-md mb-8 leading-relaxed">
+          Focus together, grow together. A cute Pomodoro timer to share with friends.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <Link
+            href="/timer"
+            className="px-8 py-3.5 bg-[#E54B4B] text-white rounded-full text-lg font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:shadow-xl hover:shadow-[#E54B4B]/30 hover:-translate-y-0.5 transition-all"
           >
-            Settings
-          </button>
-
-          {session && (
-            <button
-              onClick={() => setShowCreateRoom(true)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
-            >
-              Create Room
-            </button>
-          )}
+            Start Focusing
+          </Link>
 
           <button
             onClick={() => setShowJoinRoom(true)}
-            className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+            className="px-8 py-3.5 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full text-lg font-bold hover:border-[#E54B4B]/40 hover:bg-[#FFF8F0] hover:-translate-y-0.5 transition-all"
           >
-            Join Room
+            Join a Room
           </button>
         </div>
 
-        {/* Tip */}
         {!session && (
-          <p className="text-gray-500 text-sm text-center">
-            Sign in to save your analytics and create rooms for friends.
-          </p>
+          <button
+            onClick={() => setShowAuth(true)}
+            className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors underline decoration-dotted underline-offset-4"
+          >
+            Sign in to track analytics & create rooms
+          </button>
         )}
-      </div>
+      </section>
 
-      {/* Modals */}
-      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
-      {session && (
-        <CreateRoomModal
-          isOpen={showCreateRoom}
-          onClose={() => setShowCreateRoom(false)}
-          userId={userId}
-          userName={userName}
-        />
-      )}
+      {/* Feature Cards */}
+      <section className="px-4 pb-16 max-w-4xl mx-auto w-full">
+        <div className="grid md:grid-cols-3 gap-5">
+          <FeatureCard
+            icon={
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="16" stroke="#E54B4B" strokeWidth="3" fill="#FFF0F0" />
+                <path d="M20 12V20L26 24" stroke="#E54B4B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="20" cy="6" r="2" fill="#6EAE3E" />
+              </svg>
+            }
+            title="Focus Timer"
+            description="25-minute Pomodoros with customizable work & break durations. Stay in the zone!"
+          />
+          <FeatureCard
+            icon={
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <rect x="4" y="16" width="6" height="18" rx="3" fill="#F5A0A0" />
+                <rect x="13" y="10" width="6" height="24" rx="3" fill="#E54B4B" />
+                <rect x="22" y="14" width="6" height="20" rx="3" fill="#F5A0A0" />
+                <rect x="31" y="6" width="6" height="28" rx="3" fill="#E54B4B" />
+              </svg>
+            }
+            title="Smart Analytics"
+            description="Track full & partial Pomodoros. See your daily progress, completion rates, and focus streaks."
+          />
+          <FeatureCard
+            icon={
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <circle cx="14" cy="16" r="6" fill="#F5A0A0" />
+                <circle cx="26" cy="16" r="6" fill="#E54B4B" />
+                <path d="M8 30C8 26 11 24 14 24C16 24 17 24.5 20 26C23 24.5 24 24 26 24C29 24 32 26 32 30V32H8V30Z" fill="#E54B4B" opacity="0.8" />
+              </svg>
+            }
+            title="Focus with Friends"
+            description="Create a room, share the link, and sync your Pomodoros with friends in real time."
+          />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="px-4 pb-20 max-w-2xl mx-auto w-full">
+        <h2 className="text-2xl font-bold text-[#3D2C2C] text-center mb-8">How It Works</h2>
+        <div className="flex flex-col gap-4">
+          <Step number="1" text="Start a 25-minute focus session (or customize the length)" />
+          <Step number="2" text="Take a short 5-minute break when the timer rings" />
+          <Step number="3" text="After 4 Pomodoros, enjoy a longer 15-minute break" />
+          <Step number="4" text="Invite friends to join your room and focus together!" />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-[#F0E6D3] py-6 text-center">
+        <p className="text-sm text-[#B8A080]">
+          Made with care. Focus better, together.
+        </p>
+      </footer>
+
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       <JoinRoomModal isOpen={showJoinRoom} onClose={() => setShowJoinRoom(false)} />
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-6 text-center hover:border-[#E54B4B]/30 hover:shadow-lg hover:shadow-[#E54B4B]/5 hover:-translate-y-1 transition-all">
+      <div className="flex justify-center mb-4">{icon}</div>
+      <h3 className="text-lg font-bold text-[#3D2C2C] mb-2">{title}</h3>
+      <p className="text-sm text-[#8B7355] leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function Step({ number, text }: { number: string; text: string }) {
+  return (
+    <div className="flex items-center gap-4 bg-white border-2 border-[#F0E6D3] rounded-xl px-5 py-4">
+      <div className="w-9 h-9 rounded-full bg-[#E54B4B] text-white font-bold flex items-center justify-center text-sm flex-shrink-0">
+        {number}
+      </div>
+      <p className="text-[#5C4033] text-sm font-medium">{text}</p>
     </div>
   );
 }
