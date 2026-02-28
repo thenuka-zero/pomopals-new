@@ -36,7 +36,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setError(isLogin ? "Invalid email or password." : "Registration failed. Email may already be taken.");
       } else {
         onClose();
-        window.location.reload();
+        window.location.href = "/analytics";
       }
     } catch {
       setError("Something went wrong. Please try again.");
