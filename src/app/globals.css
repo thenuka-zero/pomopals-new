@@ -1,13 +1,27 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --background: #FDF6EC;
   --foreground: #3D2C2C;
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: #FDF6EC;
+  --color-foreground: #3D2C2C;
+  --color-cream: #FDF6EC;
+  --color-cream-dark: #F5EDE0;
+  --color-tomato: #E54B4B;
+  --color-tomato-dark: #D43D3D;
+  --color-tomato-light: #F5A0A0;
+  --color-green: #6EAE3E;
+  --color-sand: #F0E6D3;
+  --color-brown: #3D2C2C;
+  --color-brown-light: #5C4033;
+  --color-brown-muted: #8B7355;
+  --color-tan: #A08060;
   --animate-bounce-slow: bounce-slow 3s ease-in-out infinite;
 }
 
@@ -16,9 +30,9 @@
   50% { transform: translateY(-12px); }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+html, body {
+  background-color: #FDF6EC !important;
+  color: #3D2C2C !important;
   font-family: "Nunito", "Quicksand", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 

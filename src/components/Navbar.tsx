@@ -13,7 +13,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-40 bg-[#FDF6EC]/90 backdrop-blur-md border-b border-[#F0E6D3]">
+      <nav className="sticky top-0 z-40 border-b border-[#F0E6D3]" style={{ backgroundColor: "#FDF6EC" }}>
         <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             {/* Mini tomato icon */}
