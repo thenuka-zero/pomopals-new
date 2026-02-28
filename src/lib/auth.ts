@@ -5,6 +5,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 const users: Map<string, { id: string; name: string; email: string; password: string }> = new Map();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "credentials",
