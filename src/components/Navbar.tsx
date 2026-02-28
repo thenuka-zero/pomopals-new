@@ -37,7 +37,7 @@ export default function Navbar() {
 
           <div className="flex items-center gap-1">
             <NavLink href="/timer" active={pathname === "/timer"}>Timer</NavLink>
-            {session && <NavLink href="/analytics" active={pathname === "/analytics"}>Analytics</NavLink>}
+            {session && <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>}
 
             {session ? (
               <div className="flex items-center gap-3 ml-3">

@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DailyAnalytics } from "@/lib/types";
-import AnalyticsChart from "@/components/AnalyticsChart";
+import Dashboard from "@/components/Dashboard";
 
 export default function AnalyticsPage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
-  const [analytics, setAnalytics] = useState<DailyAnalytics[]>([]);
-  const [days, setDays] = useState(7);
+  const [todayData, setTodayData] = useState<DailyAnalytics | null>(null);
+  const [allData, setAllData] = useState<DailyAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,20 +20,25 @@ export default function AnalyticsPage() {
       return;
     }
 
-    const fetchAnalytics = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/analytics?userId=${session.user?.id}&days=${days}`);
-        const data = await res.json();
-        setAnalytics(data);
+        const [todayRes, allRes] = await Promise.all([
+          fetch(`/api/analytics?userId=${session.user?.id}&days=1`),
+          fetch(`/api/analytics?userId=${session.user?.id}&days=365`),
+        ]);
+        const today: DailyAnalytics[] = await todayRes.json();
+        const all: DailyAnalytics[] = await allRes.json();
+        setTodayData(today[0] || null);
+        setAllData(all);
       } catch {
         // silently fail
       } finally {
         setLoading(false);
       }
     };
-    fetchAnalytics();
-  }, [session, authStatus, router, days]);
+    fetchData();
+  }, [session, authStatus, router]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -44,31 +49,13 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[#3D2C2C]">Analytics</h1>
-          <p className="text-[#8B7355] text-sm mt-1">Track your Pomodoro history and focus patterns.</p>
-        </div>
-
-        <div className="flex gap-2">
-          {[7, 14, 30].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
-                days === d
-                  ? "bg-[#E54B4B]/10 text-[#E54B4B]"
-                  : "text-[#8B7355] hover:text-[#E54B4B]"
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-[#3D2C2C]">Dashboard</h1>
+        <p className="text-[#8B7355] text-sm mt-1">Your focus stats and Pomodoro history.</p>
       </div>
 
-      <AnalyticsChart data={analytics} />
+      <Dashboard todayData={todayData} allData={allData} />
     </div>
   );
 }
