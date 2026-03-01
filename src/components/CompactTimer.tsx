@@ -155,8 +155,14 @@ export default function CompactTimer() {
   useEffect(() => {
     if (phase !== "work" && !pendingReflection) {
       setIntentionId(null);
+      clearCurrentIntention();
     }
-  }, [phase, pendingReflection]);
+    // If work completed without an intention, clear the stuck pendingReflection
+    if (pendingReflection && !intentionId && phase !== "work") {
+      setPendingReflection(false);
+      clearCurrentIntention();
+    }
+  }, [phase, pendingReflection, intentionId, setPendingReflection, clearCurrentIntention]);
 
   // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
@@ -246,8 +252,8 @@ export default function CompactTimer() {
     expandedCircumference - (progress / 100) * expandedCircumference;
 
   const handleStart = useCallback(() => {
-    // Create intention if text is set and user is authenticated
-    if (currentIntention.trim() && session?.user) {
+    // Create intention if text is set, user is authenticated, and no intention already created
+    if (currentIntention.trim() && session?.user && !intentionId) {
       const newId = crypto.randomUUID();
       setIntentionId(newId);
       // Fire and forget — never block the timer
@@ -263,7 +269,7 @@ export default function CompactTimer() {
       }).catch(() => {});
     }
     start();
-  }, [currentIntention, session?.user, start]);
+  }, [currentIntention, session?.user, intentionId, start]);
 
   const handleSkip = useCallback(() => {
     if (intentionId) {
@@ -305,7 +311,7 @@ export default function CompactTimer() {
         {/* --- COMPACT VIEW --- */}
         <div
           className={`bg-white border-2 rounded-2xl shadow-md overflow-hidden transition-all duration-500 ease-in-out ${
-            expanded ? "max-h-[700px]" : "max-h-[120px]"
+            expanded ? "max-h-[800px]" : "max-h-[180px]"
           } ${flashPulse ? "border-[#E54B4B] shadow-[#E54B4B]/20" : "border-[#F0E6D3] shadow-[#3D2C2C]/5"}`}
         >
           {/* Compact bar - always visible */}
@@ -418,6 +424,13 @@ export default function CompactTimer() {
               </svg>
             </button>
           </div>
+
+          {/* Intention input — always visible below compact bar */}
+          {session?.user && intentionsEnabled && !expanded && (
+            <div className="px-5 pb-3 -mt-1">
+              <IntentionInput />
+            </div>
+          )}
 
           {/* --- EXPANDED VIEW --- */}
           <div

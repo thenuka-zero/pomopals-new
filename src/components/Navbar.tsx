@@ -95,22 +95,15 @@ export default function Navbar() {
               <div className="ml-3 w-20 h-8 bg-[#F0E6D3] rounded-full animate-pulse" />
             ) : session ? (
               <>
-                <NavLink href="/library" active={pathname === "/library"}>Library 📚</NavLink>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/intentions" active={pathname === "/intentions"}>Journal</NavLink>
-                <Link
-                  href="/trophies"
-                  className={`relative px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
-                    pathname === "/trophies"
-                      ? "bg-[#E54B4B]/10 text-[#E54B4B]"
-                      : "text-[#8B7355] hover:text-[#E54B4B]"
-                  }`}
-                >
-                  🏆
+                <NavLink href="/library" active={pathname === "/library"}>Library</NavLink>
+                <span className="relative">
+                  <NavLink href="/trophies" active={pathname === "/trophies"}>Trophies</NavLink>
                   {hasPendingAchievements && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#E54B4B] rounded-full" />
                   )}
-                </Link>
+                </span>
                 <Link
                   href="/friends"
                   className={`relative px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
@@ -138,7 +131,7 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2 ml-3">
-                <NavLink href="/library" active={pathname === "/library"}>Library 📚</NavLink>
+                <NavLink href="/library" active={pathname === "/library"}>Library</NavLink>
                 <button
                   onClick={() => { setModalMode("login"); setShowAuth(true); }}
                   className="px-4 py-1.5 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"

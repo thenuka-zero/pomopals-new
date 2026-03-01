@@ -2,11 +2,7 @@
 
 import { useTimerStore } from "@/store/timer-store";
 
-interface IntentionInputProps {
-  disabled?: boolean;
-}
-
-export default function IntentionInput({ disabled = false }: IntentionInputProps) {
+export default function IntentionInput() {
   const currentIntention = useTimerStore((s) => s.currentIntention);
   const setCurrentIntention = useTimerStore((s) => s.setCurrentIntention);
   const status = useTimerStore((s) => s.status);
@@ -15,8 +11,8 @@ export default function IntentionInput({ disabled = false }: IntentionInputProps
   // When running, show read-only active intention
   if (status === "running" && currentIntention) {
     return (
-      <div className="mt-3 px-4 py-2 rounded-lg bg-[#F0E6D3] border border-[#3D2C2C]/10 text-sm text-[#3D2C2C]/70 italic flex items-center gap-2">
-        <span>💭</span>
+      <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-center gap-2">
+        <span className="text-xs">💭</span>
         <span className="truncate">{currentIntention}</span>
       </div>
     );
@@ -25,7 +21,7 @@ export default function IntentionInput({ disabled = false }: IntentionInputProps
   // When running without intention, show nothing
   if (status === "running") return null;
 
-  // Only show in idle/paused during work phase (or when idle and no phase context)
+  // Only show in idle/paused during work phase
   const showInput =
     (status === "idle" || status === "paused") &&
     (phase === "work" || status === "idle");
@@ -37,7 +33,7 @@ export default function IntentionInput({ disabled = false }: IntentionInputProps
   const isOverLimit = charCount > 280;
 
   return (
-    <div className="mt-3 w-full">
+    <div className="w-full">
       <div className="relative">
         <input
           type="text"
@@ -47,16 +43,14 @@ export default function IntentionInput({ disabled = false }: IntentionInputProps
               setCurrentIntention(e.target.value);
             }
           }}
-          placeholder="What will you focus on? (optional)"
-          disabled={disabled}
+          placeholder="What will you focus on?"
           maxLength={280}
           className={`
-            w-full px-4 py-2.5 rounded-lg text-sm
-            bg-[#F0E6D3]/60 border
-            ${isOverLimit ? "border-[#E54B4B]" : "border-[#3D2C2C]/20"}
-            text-[#3D2C2C] placeholder-[#3D2C2C]/40
-            focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/30 focus:border-[#E54B4B]/50
-            disabled:opacity-50 disabled:cursor-not-allowed
+            w-full px-3 py-2 rounded-lg text-sm
+            bg-[#F0E6D3]/40 border
+            ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
+            text-[#3D2C2C] placeholder-[#A08060]
+            focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20 focus:border-[#E54B4B]/40
             transition-colors
           `}
         />

@@ -11,21 +11,12 @@ export default function BookCard({ book }: BookCardProps) {
       <div
         className="relative flex cursor-pointer transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:shadow-2xl"
         style={{
-          transform: "perspective(800px) rotateY(-8deg)",
           aspectRatio: "2/3",
           borderRadius: "4px 8px 8px 4px",
           boxShadow:
-            "-4px 6px 20px rgba(0,0,0,0.25), 4px 2px 12px rgba(0,0,0,0.1)",
-          willChange: "transform",
+            "0 4px 16px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)",
         }}
       >
-        {/* Hover state handled via a sibling overlay approach using CSS custom properties */}
-        <style>{`
-          .book-card-${book.slug.replace(/[^a-z0-9]/g, "-")}:hover {
-            transform: perspective(800px) rotateY(-2deg) translateY(-8px) !important;
-          }
-        `}</style>
-
         {/* Spine */}
         <div
           className="absolute left-0 top-0 bottom-0 w-2 rounded-l-sm"
@@ -38,7 +29,7 @@ export default function BookCard({ book }: BookCardProps) {
 
         {/* Cover */}
         <div
-          className={`book-card-${book.slug.replace(/[^a-z0-9]/g, "-")} relative flex flex-col overflow-hidden w-full h-full`}
+          className="relative flex flex-col overflow-hidden w-full h-full"
           style={{
             backgroundColor: book.coverColor,
             borderRadius: "2px 8px 8px 2px",
