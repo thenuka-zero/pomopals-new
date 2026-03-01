@@ -166,17 +166,6 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="px-4 pb-20 max-w-4xl mx-auto w-full">
-        <h2 className="text-2xl font-bold text-[#3D2C2C] text-center mb-8">How It Works</h2>
-        <div className="flex flex-col gap-4">
-          <Step number="1" text="Start a 25-minute focus session (or customize the length)" />
-          <Step number="2" text="Take a short 5-minute break when the timer rings" />
-          <Step number="3" text="After 4 Pomodoros, enjoy a longer 15-minute break" />
-          <Step number="4" text="Invite friends to join your room and focus together!" />
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="border-t border-[#F0E6D3] py-6 text-center">
         <p className="text-sm text-[#B8A080]">
@@ -212,15 +201,4 @@ function FeatureCard({ icon, title, description, href }: { icon: React.ReactNode
     return <Link href={href} className={className}>{content}</Link>;
   }
   return <div className={className}>{content}</div>;
-}
-
-function Step({ number, text }: { number: string; text: string }) {
-  return (
-    <div className="flex items-center gap-4 bg-white border-2 border-[#F0E6D3] rounded-xl px-5 py-4">
-      <div className="w-9 h-9 rounded-full bg-[#E54B4B] text-white font-bold flex items-center justify-center text-sm flex-shrink-0">
-        {number}
-      </div>
-      <p className="text-[#5C4033] text-sm font-medium">{text}</p>
-    </div>
-  );
 }
