@@ -25,7 +25,7 @@ export async function recordSession(session: PomodoroSession & {
     timezone: session.timezone ?? null,
     roomId: session.roomId ?? null,
     roomParticipantCount: session.roomParticipantCount ?? null,
-  });
+  }).onConflictDoNothing();
 }
 
 export async function getUserSessions(userId: string): Promise<PomodoroSession[]> {

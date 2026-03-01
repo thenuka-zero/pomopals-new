@@ -76,14 +76,22 @@ export default function AnalyticsPage() {
   const focusHours = Math.floor(totalFocusMinutes / 60);
   const focusMins = Math.round(totalFocusMinutes % 60);
 
-  // Gather all sessions for the recent list
-  const allSessions = analytics
-    .flatMap((d) => d.sessions)
-    .sort(
-      (a, b) =>
-        new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-    )
-    .slice(0, 25);
+  // Gather all sessions for the recent list, deduplicating by startedAt
+  // (multiple tabs or beforeunload can record the same pomodoro with different IDs)
+  const allSessions = (() => {
+    const sorted = analytics
+      .flatMap((d) => d.sessions)
+      .sort(
+        (a, b) =>
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      );
+    const seen = new Set<string>();
+    return sorted.filter((s) => {
+      if (seen.has(s.startedAt)) return false;
+      seen.add(s.startedAt);
+      return true;
+    }).slice(0, 25);
+  })();
 
   if (authStatus === "loading") {
     return <LoadingScreen />;

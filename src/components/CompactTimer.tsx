@@ -171,14 +171,16 @@ export default function CompactTimer() {
   // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (status === "running" && phase === "work" && session?.user?.id) {
-        const totalDuration = settings.workDuration * 60;
-        const elapsed = totalDuration - timeRemaining;
-        if (elapsed > 0) {
+      // Read fresh state from the store to avoid stale closures
+      const s = useTimerStore.getState();
+      if (s.status === "running" && s.phase === "work" && session?.user?.id) {
+        const totalDuration = s.settings.workDuration * 60;
+        const elapsed = totalDuration - s.timeRemaining;
+        if (elapsed > 0 && s.currentSessionStart) {
           const partialSession = {
             id: uuidv4(),
             userId: session.user.id,
-            startedAt: new Date(Date.now() - elapsed * 1000).toISOString(),
+            startedAt: new Date(s.currentSessionStart).toISOString(),
             endedAt: new Date().toISOString(),
             phase: "work",
             plannedDuration: totalDuration,
@@ -191,10 +193,10 @@ export default function CompactTimer() {
             "/api/analytics",
             new Blob([JSON.stringify({
               ...partialSession,
-              sessionRunId: sessionRunId,
+              sessionRunId: s.sessionRunId,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              roomId: roomId ?? null,
-              roomParticipantCount: roomParticipantCount ?? null,
+              roomId: s.roomId ?? null,
+              roomParticipantCount: s.roomParticipantCount ?? null,
             })], {
               type: "application/json",
             })
@@ -211,7 +213,7 @@ export default function CompactTimer() {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [status, phase, settings, timeRemaining, session, sessionRunId, roomId, roomParticipantCount]);
+  }, [session]);
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
