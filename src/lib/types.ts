@@ -15,6 +15,7 @@ export interface TimerSettings {
   shortBreakDuration: number; // in minutes
   longBreakDuration: number; // in minutes
   longBreakInterval: number; // after how many pomodoros
+  notificationSound: "none" | "bell" | "digital"; // NEW — default "none"
 }
 
 export type TimerPhase = "work" | "shortBreak" | "longBreak";
@@ -99,4 +100,59 @@ export interface Participant {
   id: string;
   name: string;
   joinedAt: string;
+}
+
+// ─── Friend Relationships ─────────────────────────────────────────────────────
+
+export type FriendRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
+export type RoomJoinRequestStatus = "pending" | "approved" | "denied" | "expired" | "cancelled";
+
+export interface FriendRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  recipientId: string;
+  recipientName: string;
+  status: FriendRequestStatus;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+export interface Friend {
+  userId: string;
+  name: string;
+  email: string;
+  friendsSince: string; // ISO 8601 (createdAt of friendship row)
+}
+
+// ─── Presence ────────────────────────────────────────────────────────────────
+
+export interface FriendPresence {
+  userId: string;
+  name: string;
+  isActive: boolean;
+  roomId: string | null;
+  roomName: string | null;
+  phase: TimerPhase | null;
+  startedAt: string | null;
+}
+
+// ─── Room Join Requests ───────────────────────────────────────────────────────
+
+export interface RoomJoinRequest {
+  id: string;
+  roomId: string;
+  requesterId: string;
+  requesterName: string;
+  hostId: string;
+  status: RoomJoinRequestStatus;
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+export interface UserSettings {
+  broadcastEnabled: boolean;
 }

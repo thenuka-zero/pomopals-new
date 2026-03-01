@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { DailyAnalytics, PomodoroSession } from "@/lib/types";
 import { format, parseISO } from "date-fns";
+import FriendsActivityWidget from "@/components/FriendsActivityWidget";
+import JoinRequestModal from "@/components/JoinRequestModal";
 
 interface DashboardProps {
   todayData: DailyAnalytics | null;
@@ -9,6 +12,13 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ todayData, allData }: DashboardProps) {
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [joinTarget, setJoinTarget] = useState<{
+    roomId: string;
+    roomName: string;
+    hostName: string;
+  } | null>(null);
+
   // Collect all sessions across all days, newest first
   const allSessions = allData
     .flatMap((d) => d.sessions)
@@ -26,6 +36,24 @@ export default function Dashboard({ todayData, allData }: DashboardProps) {
 
   return (
     <div className="space-y-8">
+      {/* Friends Activity */}
+      <FriendsActivityWidget
+        onJoin={(roomId, roomName, hostName) => {
+          setJoinTarget({ roomId, roomName, hostName });
+          setJoinModalOpen(true);
+        }}
+      />
+
+      {joinModalOpen && joinTarget && (
+        <JoinRequestModal
+          isOpen={joinModalOpen}
+          onClose={() => setJoinModalOpen(false)}
+          roomId={joinTarget.roomId}
+          roomName={joinTarget.roomName}
+          hostName={joinTarget.hostName}
+        />
+      )}
+
       {/* Today's Stats */}
       <section>
         <h2 className="text-sm text-[#8B7355] font-semibold mb-3 uppercase tracking-wide">Today</h2>

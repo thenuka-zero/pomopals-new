@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useTimerStore } from "@/store/timer-store";
+import { useNotifications, unlockAudioContext } from "@/hooks/useNotifications";
 import Settings from "@/components/Settings";
 import CreateRoomModal from "@/components/CreateRoomModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
@@ -28,9 +29,15 @@ export default function CompactTimer() {
     reset,
     skip,
     tick,
+    lastTransitionType,
+    hydratedAsExpired,
+    isRemoteTransition,
   } = useTimerStore();
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { requestPermission, notifyPhaseComplete, notifyHydratedExpired } = useNotifications();
+  const prevPhase = useRef(phase);
+  const [flashPulse, setFlashPulse] = useState(false);
 
   // Tick the timer
   useEffect(() => {
@@ -43,6 +50,62 @@ export default function CompactTimer() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [status, tick]);
+
+  // Phase-completion notification
+  useEffect(() => {
+    if (lastTransitionType === "completed") {
+      const { showFlash } = notifyPhaseComplete(prevPhase.current, phase, {
+        isRemote: isRemoteTransition,
+      });
+      if (showFlash) {
+        setFlashPulse(true);
+        setTimeout(() => setFlashPulse(false), 1200);
+      }
+    }
+    prevPhase.current = phase;
+  }, [phase, lastTransitionType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hydration late notification (timer expired while tab was closed)
+  useEffect(() => {
+    if (!hydratedAsExpired) return;
+    // After hydration expiry, `phase` is the new phase. The completed phase is the prior one.
+    // If phase is now a break type -> work just completed. If phase is now work -> break just completed.
+    const justCompleted: import("@/lib/types").TimerPhase =
+      phase === "work" ? "shortBreak" : "work";
+    notifyHydratedExpired(justCompleted);
+    useTimerStore.setState({ hydratedAsExpired: false });
+  }, [hydratedAsExpired]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Presence: update when status/phase changes
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (status === "running" && phase === "work") {
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true, roomId: null, roomName: null, phase: "work" }),
+      }).catch(() => {});
+    } else if (status === "paused" || status === "idle") {
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      }).catch(() => {});
+    }
+  }, [status, phase, session?.user?.id]);
+
+  // Presence heartbeat every 60 seconds while running
+  useEffect(() => {
+    if (status !== "running" || phase !== "work" || !session?.user?.id) return;
+    const interval = setInterval(() => {
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true, roomId: null, phase: "work" }),
+      }).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [status, phase, session?.user?.id]);
 
   // Record completed sessions to analytics API
   useEffect(() => {
@@ -59,7 +122,7 @@ export default function CompactTimer() {
     }
   }, [sessions, session]);
 
-  // Record partial sessions when user navigates away
+  // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (status === "running" && phase === "work" && session?.user?.id) {
@@ -85,6 +148,13 @@ export default function CompactTimer() {
             })
           );
         }
+      }
+      // Always clear presence on page unload
+      if (session?.user?.id) {
+        navigator.sendBeacon(
+          "/api/presence",
+          new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
+        );
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -136,10 +206,16 @@ export default function CompactTimer() {
     expandedCircumference - (progress / 100) * expandedCircumference;
 
   const handlePlayPause = useCallback(() => {
-    if (status === "idle") start();
-    else if (status === "running") pause();
-    else if (status === "paused") resume();
-  }, [status, start, pause, resume]);
+    if (status === "idle") {
+      requestPermission();
+      unlockAudioContext();
+      start();
+    } else if (status === "running") {
+      pause();
+    } else if (status === "paused") {
+      resume();
+    }
+  }, [status, start, pause, resume, requestPermission]);
 
   const userId =
     session?.user?.id || "guest-" + Math.random().toString(36).slice(2);
@@ -150,9 +226,9 @@ export default function CompactTimer() {
       <div className="w-full max-w-lg mx-auto">
         {/* --- COMPACT VIEW --- */}
         <div
-          className={`bg-white border-2 border-[#F0E6D3] rounded-2xl shadow-md shadow-[#3D2C2C]/5 overflow-hidden transition-all duration-500 ease-in-out ${
+          className={`bg-white border-2 rounded-2xl shadow-md overflow-hidden transition-all duration-500 ease-in-out ${
             expanded ? "max-h-[700px]" : "max-h-[120px]"
-          }`}
+          } ${flashPulse ? "border-[#E54B4B] shadow-[#E54B4B]/20" : "border-[#F0E6D3] shadow-[#3D2C2C]/5"}`}
         >
           {/* Compact bar - always visible */}
           <div className="flex items-center gap-4 px-5 py-4">
@@ -341,7 +417,11 @@ export default function CompactTimer() {
                 <div className="flex items-center gap-3 mt-1">
                   {status === "idle" && (
                     <button
-                      onClick={start}
+                      onClick={() => {
+                        requestPermission();
+                        unlockAudioContext();
+                        start();
+                      }}
                       className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all"
                     >
                       Start

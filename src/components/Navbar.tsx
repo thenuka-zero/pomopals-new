@@ -3,8 +3,9 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
+import { useFriendsStore } from "@/store/friends-store";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -14,6 +15,14 @@ export default function Navbar() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
+  const { pendingRequestCount, fetchPendingCount } = useFriendsStore();
+
+  useEffect(() => {
+    if (!session?.user) return;
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30_000);
+    return () => clearInterval(interval);
+  }, [session?.user, fetchPendingCount]);
 
   const showVerificationBanner =
     session?.user && !session.user.emailVerified && !bannerDismissed;
@@ -68,6 +77,21 @@ export default function Navbar() {
             ) : session ? (
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
+                <Link
+                  href="/friends"
+                  className={`relative px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
+                    pathname === "/friends"
+                      ? "bg-[#E54B4B]/10 text-[#E54B4B]"
+                      : "text-[#8B7355] hover:text-[#E54B4B]"
+                  }`}
+                >
+                  Friends
+                  {pendingRequestCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-[#E54B4B] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                      {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+                    </span>
+                  )}
+                </Link>
                 <div className="flex items-center gap-3 ml-3">
                   <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">{session.user?.name}</span>
                   <button

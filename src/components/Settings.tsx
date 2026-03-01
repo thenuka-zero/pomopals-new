@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTimerStore } from "@/store/timer-store";
 
 interface SettingsProps {
@@ -11,6 +11,40 @@ interface SettingsProps {
 export default function Settings({ isOpen, onClose }: SettingsProps) {
   const { settings, updateSettings, status } = useTimerStore();
   const [local, setLocal] = useState(settings);
+  const [broadcastEnabled, setBroadcastEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        setBroadcastEnabled(d.settings?.broadcastEnabled ?? true);
+        setSettingsLoaded(true);
+      })
+      .catch(() => setSettingsLoaded(true));
+  }, [isOpen]);
+
+  const handleBroadcastToggle = async () => {
+    const newVal = !broadcastEnabled;
+    setBroadcastEnabled(newVal);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ broadcastEnabled: newVal }),
+      });
+      if (!newVal) {
+        await fetch("/api/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: false }),
+        });
+      }
+    } catch {
+      // ignore — the toggle is optimistic
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -72,6 +106,62 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
               className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
             />
           </div>
+
+          <div className="border-t border-[#F0E6D3] pt-4">
+            <h3 className="text-sm font-bold text-[#3D2C2C] mb-3">Notifications</h3>
+            <div>
+              <label className="block text-sm text-[#5C4033] font-semibold mb-1">
+                Notification Sound
+              </label>
+              <select
+                value={local.notificationSound ?? "none"}
+                onChange={(e) =>
+                  setLocal({
+                    ...local,
+                    notificationSound: e.target.value as "none" | "bell" | "digital",
+                  })
+                }
+                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
+              >
+                <option value="none">None (silent)</option>
+                <option value="bell">Bell</option>
+                <option value="digital">Digital beep</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Privacy Section */}
+        <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
+          <h3 className="font-semibold text-[#3D2C2C] mb-2">Privacy</h3>
+          {settingsLoaded ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-[#3D2C2C] font-medium">
+                  Share my Pomodoro sessions with friends
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Friends can see when you&apos;re focusing and request to join your rooms.
+                </p>
+              </div>
+              <button
+                onClick={handleBroadcastToggle}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  broadcastEnabled ? "bg-[#6EAE3E]" : "bg-gray-300"
+                }`}
+                role="switch"
+                aria-checked={broadcastEnabled}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                    broadcastEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          ) : (
+            <div className="h-10 bg-[#F0E6D3] rounded-xl animate-pulse" />
+          )}
         </div>
 
         {status !== "idle" && (

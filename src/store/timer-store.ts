@@ -24,6 +24,11 @@ interface TimerState {
   currentSessionStart: number | null; // Date.now() timestamp
   sessions: PomodoroSession[];
 
+  // Notification state
+  lastTransitionType: "completed" | "skipped" | "reset" | null;
+  hydratedAsExpired: boolean;
+  isRemoteTransition: boolean;
+
   // Actions
   start: () => void;
   pause: () => void;
@@ -41,6 +46,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   shortBreakDuration: 5,
   longBreakDuration: 15,
   longBreakInterval: 4,
+  notificationSound: "none",
 };
 
 function getDurationForPhase(phase: TimerPhase, settings: TimerSettings): number {
@@ -81,6 +87,9 @@ export const useTimerStore = create<TimerState>()(
       elapsed: 0,
       currentSessionStart: null,
       sessions: [],
+      lastTransitionType: null,
+      hydratedAsExpired: false,
+      isRemoteTransition: false,
 
       updateSettings: (newSettings) => {
         const settings = { ...get().settings, ...newSettings };
@@ -131,12 +140,15 @@ export const useTimerStore = create<TimerState>()(
           startedAt: null,
           elapsed: 0,
           currentSessionStart: null,
+          lastTransitionType: "reset",
+          isRemoteTransition: false,
         });
       },
 
       skip: () => {
         const state = get();
         recordSessionIfNeeded(state, set);
+        set({ lastTransitionType: "skipped", isRemoteTransition: false });
         transitionPhase(state, set);
       },
 
@@ -149,7 +161,6 @@ export const useTimerStore = create<TimerState>()(
         );
 
         if (newTime <= 0) {
-          // Phase complete
           const totalDuration = getDurationForPhase(state.phase, state.settings) * 60;
           if (state.currentSessionStart) {
             const session: PomodoroSession = {
@@ -166,6 +177,7 @@ export const useTimerStore = create<TimerState>()(
             };
             set((s) => ({ sessions: [...s.sessions, session] }));
           }
+          set({ lastTransitionType: "completed", isRemoteTransition: false });
           transitionPhase(state, set);
         } else {
           set({ timeRemaining: newTime });
@@ -174,7 +186,7 @@ export const useTimerStore = create<TimerState>()(
 
       syncState: (phase, status, timeRemaining, pomodoroCount) => {
         skipBroadcast = true;
-        set({ phase, status, timeRemaining, pomodoroCount });
+        set({ phase, status, timeRemaining, pomodoroCount, isRemoteTransition: true });
         skipBroadcast = false;
       },
     }),
@@ -211,6 +223,7 @@ export const useTimerStore = create<TimerState>()(
                 elapsed: 0,
                 timeRemaining: getDurationForPhase(nextPhase, settings) * 60,
                 currentSessionStart: null,
+                hydratedAsExpired: true,
               });
             } else {
               useTimerStore.setState({
@@ -220,6 +233,7 @@ export const useTimerStore = create<TimerState>()(
                 elapsed: 0,
                 timeRemaining: settings.workDuration * 60,
                 currentSessionStart: null,
+                hydratedAsExpired: true,
               });
             }
           } else {
@@ -255,7 +269,8 @@ if (typeof window !== "undefined") {
         state.pomodoroCount !== prevState.pomodoroCount ||
         state.startedAt !== prevState.startedAt ||
         state.elapsed !== prevState.elapsed ||
-        state.settings !== prevState.settings
+        state.settings !== prevState.settings ||
+        state.lastTransitionType !== prevState.lastTransitionType
       ) {
         channel.postMessage({
           phase: state.phase,
@@ -264,6 +279,7 @@ if (typeof window !== "undefined") {
           elapsed: state.elapsed,
           pomodoroCount: state.pomodoroCount,
           settings: state.settings,
+          lastTransitionType: state.lastTransitionType,
         });
       }
     });
@@ -283,6 +299,8 @@ if (typeof window !== "undefined") {
         pomodoroCount: data.pomodoroCount,
         settings: data.settings,
         timeRemaining,
+        lastTransitionType: data.lastTransitionType ?? null,
+        isRemoteTransition: true,
       });
       skipBroadcast = false;
     };

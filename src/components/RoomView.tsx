@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { RoomResponse } from "@/lib/types";
+import { RoomResponse, TimerPhase, RoomJoinRequest } from "@/lib/types";
 import { useTimerStore } from "@/store/timer-store";
+import { useNotifications, unlockAudioContext } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Timer from "./Timer";
+import RoomJoinRequestBanner from "./RoomJoinRequestBanner";
 
 interface RoomViewProps {
   roomId: string;
@@ -13,17 +16,37 @@ interface RoomViewProps {
 }
 
 export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
+  const { data: session } = useSession();
   const [room, setRoom] = useState<RoomResponse | null>(null);
   const [error, setError] = useState("");
   const [joined, setJoined] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [failCount, setFailCount] = useState(0);
+  const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
   const syncState = useTimerStore((s) => s.syncState);
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+  const { requestPermission, notifyPhaseComplete } = useNotifications();
+  const prevRoomPhase = useRef<TimerPhase | null>(null);
+  const prevRoomTimeRemaining = useRef<number>(Infinity);
 
   const isAdmin = room?.hostId === userId;
+
+  const fetchJoinRequests = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/join-requests`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const pending = (data.requests ?? []).filter(
+        (r: RoomJoinRequest) => r.status === "pending"
+      );
+      setJoinRequests(pending);
+    } catch {
+      // ignore
+    }
+  }, [roomId, isAdmin]);
 
   const fetchRoom = useCallback(async () => {
     try {
@@ -39,11 +62,32 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       const data: RoomResponse = await res.json();
       setRoom(data);
       setFailCount(0);
-      syncState(data.timerState.phase, data.timerState.status, data.timerState.timeRemaining, data.timerState.pomodoroCount);
+
+      const newPhase = data.timerState.phase;
+      const newTimeRemaining = data.timerState.timeRemaining;
+
+      // Detect natural phase transition: phase changed AND previous timeRemaining was near-zero
+      if (
+        prevRoomPhase.current !== null &&
+        prevRoomPhase.current !== newPhase &&
+        prevRoomTimeRemaining.current <= 3
+      ) {
+        notifyPhaseComplete(prevRoomPhase.current, newPhase, { isRemote: false });
+      }
+
+      prevRoomPhase.current = newPhase;
+      prevRoomTimeRemaining.current = newTimeRemaining;
+
+      syncState(newPhase, data.timerState.status, newTimeRemaining, data.timerState.pomodoroCount);
+
+      // Fetch join requests if the current user is the host
+      if (data.hostId === userId) {
+        fetchJoinRequests();
+      }
     } catch {
       setFailCount((c) => c + 1);
     }
-  }, [roomId, syncState]);
+  }, [roomId, syncState, notifyPhaseComplete, userId, fetchJoinRequests]);
 
   // Join on mount
   useEffect(() => {
@@ -97,6 +141,11 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         `/api/rooms/${roomId}`,
         new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
       );
+      // Also clear presence
+      navigator.sendBeacon(
+        "/api/presence",
+        new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
+      );
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
@@ -106,8 +155,52 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         `/api/rooms/${roomId}`,
         new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
       );
+      // Clear presence on unmount
+      navigator.sendBeacon(
+        "/api/presence",
+        new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
+      );
     };
   }, [roomId, userId, joined]);
+
+  // Set presence when joined (only for authenticated users)
+  useEffect(() => {
+    if (!joined || !session?.user?.id || !room) return;
+    const currentPhase = room.timerState.phase;
+    const currentStatus = room.timerState.status;
+    if (currentStatus === "running" && currentPhase === "work") {
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isActive: true,
+          roomId,
+          roomName: room.name ?? null,
+          phase: "work",
+        }),
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joined, session?.user?.id]);
+
+  const handleApproveJoinRequest = async (requestId: string) => {
+    await fetch(`/api/rooms/${roomId}/join-requests/${requestId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+    fetchJoinRequests();
+    fetchRoom();
+  };
+
+  const handleDenyJoinRequest = async (requestId: string) => {
+    await fetch(`/api/rooms/${roomId}/join-requests/${requestId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "deny" }),
+    });
+    fetchJoinRequests();
+  };
 
   const sendAction = async (action: string) => {
     await fetch(`/api/rooms/${roomId}`, {
@@ -167,6 +260,18 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
 
   return (
     <div className="flex flex-col items-center gap-8">
+      {/* Join request banner for host */}
+      {isAdmin && joinRequests.length > 0 && (
+        <div className="w-full max-w-sm">
+          <RoomJoinRequestBanner
+            requests={joinRequests}
+            roomId={roomId}
+            onApprove={handleApproveJoinRequest}
+            onDeny={handleDenyJoinRequest}
+          />
+        </div>
+      )}
+
       {/* Reconnecting indicator */}
       {failCount >= 3 && (
         <div className="w-full max-w-sm px-4 py-2 bg-[#FFF8F0] border border-[#F0E6D3] rounded-xl text-center text-sm text-[#A08060] font-semibold">
@@ -203,7 +308,11 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       <Timer
         isRoomMode
         isReadOnly={!isAdmin}
-        onStart={() => sendAction("start")}
+        onStart={() => {
+          requestPermission();
+          unlockAudioContext();
+          sendAction("start");
+        }}
         onPause={() => sendAction("pause")}
         onReset={() => sendAction("reset")}
         onSkip={() => sendAction("skip")}

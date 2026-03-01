@@ -12,7 +12,7 @@ export interface InitialTimerState {
 // In-memory room store
 const rooms: Map<string, Room> = new Map();
 
-const MAX_PARTICIPANTS = 20;
+export const MAX_PARTICIPANTS = 20;
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 const DEFAULT_SETTINGS: TimerSettings = {
@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   shortBreakDuration: 5,
   longBreakDuration: 15,
   longBreakInterval: 4,
+  notificationSound: "bell",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────
