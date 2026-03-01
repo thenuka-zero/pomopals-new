@@ -82,16 +82,6 @@ function HomeContent() {
           <CompactTimer />
         </div>
 
-        {/* Secondary Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <button
-            onClick={() => setShowJoinRoom(true)}
-            className="px-8 py-3.5 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full text-lg font-bold hover:border-[#E54B4B]/40 hover:bg-[#FFF8F0] hover:-translate-y-0.5 transition-all"
-          >
-            Join a Room
-          </button>
-        </div>
-
         {!session && (
           <button
             onClick={() => setShowAuth(true)}
