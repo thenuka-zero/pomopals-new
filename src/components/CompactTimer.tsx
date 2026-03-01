@@ -536,9 +536,9 @@ export default function CompactTimer() {
                   title="Skip to next phase"
                   aria-label="Skip"
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M5 5v14l11-7z" />
-                    <path d="M19 5v14h-2V5h2z" />
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 4 15 12 5 20 5 4" />
+                    <line x1="19" y1="5" x2="19" y2="19" />
                   </svg>
                 </button>
 
