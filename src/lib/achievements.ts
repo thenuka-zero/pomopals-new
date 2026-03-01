@@ -67,18 +67,6 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     toastCopy: '1,000 sessions. That\'s roughly 417 hours of focused work. Legendary.',
   },
   {
-    id: 'hat-trick',
-    name: 'Hat Trick',
-    emoji: '🎩',
-    description: 'Complete 3 pomodoros on your very first day using PomoPals.',
-    hint: 'Complete 3 pomodoros the day you sign up.',
-    category: 'solo',
-    tier: 'bronze',
-    isSecret: false,
-    progressType: 'binary',
-    toastCopy: 'Three on day one. You came ready.',
-  },
-  {
     id: 'long-haul',
     name: 'Long Haul',
     emoji: '🏃',
@@ -398,18 +386,6 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     toastCopy: 'Five days focusing alongside the same friend. You two make a good team.',
   },
   // ── Easter Eggs ─────────────────────────────────────────────────────────
-  {
-    id: 'the-answer',
-    name: 'The Answer',
-    emoji: '🔢',
-    description: 'Accumulate exactly 42 total completed pomodoros.',
-    hint: 'The answer to life, the universe, and everything.',
-    category: 'easter_egg',
-    tier: 'bronze',
-    isSecret: true,
-    progressType: 'binary',
-    toastCopy: '42 pomodoros. The answer to life, the universe, and everything. Also: great work.',
-  },
   {
     id: 'early-bird',
     name: 'Early Bird',

@@ -131,10 +131,6 @@ function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"
         </span>
         <span className="text-[#8B7355] text-sm">·</span>
         <span className="text-sm text-[#8B7355]">
-          🔥 {summary.currentStreak}-day streak
-        </span>
-        <span className="text-[#8B7355] text-sm">·</span>
-        <span className="text-sm text-[#8B7355]">
           🍅 {summary.totalPomodoros.toLocaleString()} pomodoros
         </span>
       </div>
