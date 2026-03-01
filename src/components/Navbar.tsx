@@ -96,7 +96,6 @@ export default function Navbar() {
             ) : session ? (
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
-                <NavLink href="/intentions" active={pathname === "/intentions"}>Journal</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Library</NavLink>
                 <span className="relative">
                   <NavLink href="/trophies" active={pathname === "/trophies"}>Trophies</NavLink>
