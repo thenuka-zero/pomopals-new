@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { AchievementWithStatus, AchievementTier, AchievementCategory, GetAchievementsResponse } from "@/lib/types";
+import { AchievementWithStatus, AchievementTier, GetAchievementsResponse } from "@/lib/types";
 
 // ── Tier helpers ─────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; 
 
 // ── Individual Achievement Card ────────────────────────────────────────────────
 
-function AchievementCard({ achievement, highlighted }: { achievement: AchievementWithStatus; highlighted?: boolean }) {
+function AchievementCard({ achievement }: { achievement: AchievementWithStatus }) {
   const isLocked = !achievement.unlocked;
   const isSecretLocked = achievement.isSecret && isLocked;
   const tierC = tierColor(achievement.tier);
@@ -60,11 +60,10 @@ function AchievementCard({ achievement, highlighted }: { achievement: Achievemen
       className={`
         relative rounded-2xl border-2 p-4 flex flex-col gap-2 transition-all duration-300
         ${isLocked ? "opacity-70" : ""}
-        ${highlighted ? "ring-2 ring-[#E54B4B] ring-offset-2" : ""}
         ${isSecretLocked ? "bg-[#2A1F1F]" : "bg-white"}
       `}
       style={{
-        borderColor: highlighted ? "#E54B4B" : isLocked ? "#F0E6D3" : tierC.border,
+        borderColor: isLocked ? "#F0E6D3" : tierC.border,
         filter: isLocked && !isSecretLocked ? "grayscale(0.6)" : undefined,
       }}
     >
@@ -122,12 +121,13 @@ function AchievementCard({ achievement, highlighted }: { achievement: Achievemen
 // ── Summary header ────────────────────────────────────────────────────────────
 
 function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"] }) {
-  const pct = Math.round((summary.unlocked / summary.total) * 100);
+  const bronzeStats = summary.byTier.bronze;
+  const pct = bronzeStats.total > 0 ? Math.round((bronzeStats.unlocked / bronzeStats.total) * 100) : 0;
   return (
     <div className="bg-white rounded-2xl border-2 border-[#F0E6D3] p-5 mb-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
         <span className="text-lg font-bold text-[#3D2C2C]">
-          {summary.unlocked} / {summary.total} achievements
+          {bronzeStats.unlocked} / {bronzeStats.total} bronze achievements
         </span>
         <span className="text-[#8B7355] text-sm">·</span>
         <span className="text-sm text-[#8B7355]">
@@ -138,34 +138,40 @@ function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"
           🍅 {summary.totalPomodoros.toLocaleString()} pomodoros
         </span>
       </div>
-      <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden mb-3">
+      <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full bg-[#E54B4B] transition-all duration-700"
+          className="h-full rounded-full bg-[#CD7F32] transition-all duration-700"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex flex-wrap gap-3">
-        {(["bronze", "silver", "gold", "platinum"] as AchievementTier[]).map((tier) => {
-          const t = summary.byTier[tier];
-          const c = tierColor(tier);
-          return (
-            <span
-              key={tier}
-              className="text-xs font-semibold px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}` }}
-            >
-              {c.badge} {t.unlocked}/{t.total}
-            </span>
-          );
-        })}
-      </div>
+    </div>
+  );
+}
+
+// ── Coming Soon card ──────────────────────────────────────────────────────────
+
+function ComingSoonSection({ tier }: { tier: AchievementTier }) {
+  const c = tierColor(tier);
+  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+  return (
+    <div
+      className="rounded-2xl border-2 p-6 text-center"
+      style={{ borderColor: c.border, backgroundColor: c.bg }}
+    >
+      <span className="text-3xl block mb-2">{c.badge}</span>
+      <p className="text-sm font-bold mb-1" style={{ color: c.text }}>
+        {tierLabel} Achievements
+      </p>
+      <p className="text-xs text-[#8B7355]">
+        Coming soon — keep collecting bronze to prepare!
+      </p>
     </div>
   );
 }
 
 // ── Main TrophyCase component ──────────────────────────────────────────────────
 
-type CategoryFilter = "all" | AchievementCategory;
+type TierFilter = "bronze" | "silver" | "gold" | "platinum";
 type StatusFilter = "all" | "unlocked" | "locked";
 
 export default function TrophyCase() {
@@ -173,7 +179,7 @@ export default function TrophyCase() {
   const [data, setData] = useState<GetAchievementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [tierFilter, setTierFilter] = useState<TierFilter>("bronze");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [retroactiveBannerDismissed, setRetroactiveBannerDismissed] = useState(true);
 
@@ -231,38 +237,15 @@ export default function TrophyCase() {
     return <div className="text-center py-8 text-[#E54B4B]">{error ?? "Something went wrong"}</div>;
   }
 
-  // Filter achievements
-  let filtered = data.achievements;
-  if (categoryFilter !== "all") {
-    filtered = filtered.filter((a) => a.category === categoryFilter);
-  }
-  if (statusFilter === "unlocked") {
-    filtered = filtered.filter((a) => a.unlocked);
-  } else if (statusFilter === "locked") {
-    filtered = filtered.filter((a) => !a.unlocked);
-  }
-
-  // Sort: unlocked first (by unlockedAt desc), then locked by tier order
-  const tierOrder: Record<AchievementTier, number> = { platinum: 0, gold: 1, silver: 2, bronze: 3 };
-  filtered = [...filtered].sort((a, b) => {
-    if (a.unlocked && !b.unlocked) return -1;
-    if (!a.unlocked && b.unlocked) return 1;
-    if (a.unlocked && b.unlocked) {
-      return new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime();
-    }
-    return tierOrder[a.tier] - tierOrder[b.tier];
-  });
-
   const hasRetroactive = data.achievements.some((a) => a.retroactivelyAwarded);
   const showRetroactiveBanner = hasRetroactive && !retroactiveBannerDismissed;
   const retroactiveCount = data.achievements.filter((a) => a.retroactivelyAwarded).length;
 
-  const categories: { value: CategoryFilter; label: string }[] = [
-    { value: "all", label: "All" },
-    { value: "solo", label: "Solo" },
-    { value: "social", label: "Social" },
-    { value: "consistency", label: "Consistency" },
-    { value: "easter_egg", label: "Easter Eggs" },
+  const tiers: { value: TierFilter; label: string }[] = [
+    { value: "bronze", label: "🥉 Bronze" },
+    { value: "silver", label: "🥈 Silver" },
+    { value: "gold", label: "🥇 Gold" },
+    { value: "platinum", label: "💎 Platinum" },
   ];
 
   const statuses: { value: StatusFilter; label: string }[] = [
@@ -270,6 +253,33 @@ export default function TrophyCase() {
     { value: "unlocked", label: "Unlocked" },
     { value: "locked", label: "Locked" },
   ];
+
+  // Only show cards for bronze tier; others show "coming soon"
+  const isBronze = tierFilter === "bronze";
+
+  let filtered = isBronze
+    ? data.achievements.filter((a) => a.tier === "bronze")
+    : [];
+
+  if (isBronze) {
+    if (statusFilter === "unlocked") {
+      filtered = filtered.filter((a) => a.unlocked);
+    } else if (statusFilter === "locked") {
+      filtered = filtered.filter((a) => !a.unlocked);
+    }
+
+    // Sort: unlocked first (by unlockedAt desc), then locked
+    filtered = [...filtered].sort((a, b) => {
+      if (a.unlocked && !b.unlocked) return -1;
+      if (!a.unlocked && b.unlocked) return 1;
+      if (a.unlocked && b.unlocked) {
+        return new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime();
+      }
+      return 0;
+    });
+  }
+
+  const bronzeTotal = data.achievements.filter((a) => a.tier === "bronze").length;
 
   return (
     <div>
@@ -300,56 +310,65 @@ export default function TrophyCase() {
         </div>
       )}
 
-      {/* Filter bar */}
+      {/* Tier filter */}
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="flex flex-wrap gap-1">
-          {categories.map((c) => (
+          {tiers.map((t) => (
             <button
-              key={c.value}
-              onClick={() => setCategoryFilter(c.value)}
+              key={t.value}
+              onClick={() => setTierFilter(t.value)}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                categoryFilter === c.value
+                tierFilter === t.value
                   ? "bg-[#E54B4B] text-white"
                   : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#E54B4B]"
               }`}
             >
-              {c.label}
+              {t.label}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-1">
-          {statuses.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setStatusFilter(s.value)}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                statusFilter === s.value
-                  ? "bg-[#3D2C2C] text-white"
-                  : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#3D2C2C]"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {isBronze && (
+          <div className="flex flex-wrap gap-1">
+            {statuses.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(s.value)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                  statusFilter === s.value
+                    ? "bg-[#3D2C2C] text-white"
+                    : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#3D2C2C]"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Count */}
-      <p className="text-xs text-[#A08060] mb-4">
-        Showing {filtered.length} of {data.achievements.length} achievements
-      </p>
+      {/* Content */}
+      {isBronze ? (
+        <>
+          {/* Count */}
+          <p className="text-xs text-[#A08060] mb-4">
+            Showing {filtered.length} of {bronzeTotal} bronze achievements
+          </p>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-[#A08060]">
-          No achievements match this filter.
-        </div>
+          {/* Grid */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-[#A08060]">
+              No achievements match this filter.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filtered.map((achievement) => (
+                <AchievementCard key={achievement.id} achievement={achievement} />
+              ))}
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map((achievement) => (
-            <AchievementCard key={achievement.id} achievement={achievement} />
-          ))}
-        </div>
+        <ComingSoonSection tier={tierFilter} />
       )}
     </div>
   );

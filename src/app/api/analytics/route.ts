@@ -3,6 +3,10 @@ import { auth } from "@/lib/auth";
 import { recordSession, getDailyAnalytics, getAnalyticsByPeriod } from "@/lib/analytics";
 import { PomodoroSession, AnalyticsPeriod } from "@/lib/types";
 import { checkAchievements } from "@/lib/achievement-checker";
+import { getRoom } from "@/lib/rooms";
+import { db } from "@/lib/db";
+import { roomCoSessions } from "@/lib/db/schema";
+import { v4 as uuidv4 } from "uuid";
 
 const VALID_PERIODS: AnalyticsPeriod[] = ["day", "week", "month"];
 
@@ -80,6 +84,27 @@ export async function POST(request: NextRequest) {
   };
 
   await recordSession(enrichedSession);
+
+  // Non-blocking: populate roomCoSessions if this session was in a room
+  if (enrichedSession.roomId) {
+    try {
+      const room = getRoom(enrichedSession.roomId);
+      if (room) {
+        const coParticipants = room.participants.filter((p) => p.id !== session.user.id);
+        for (const participant of coParticipants) {
+          await db.insert(roomCoSessions).values({
+            id: uuidv4(),
+            sessionId: enrichedSession.id,
+            sessionUserId: session.user.id,
+            coUserId: participant.id,
+            date: enrichedSession.date,
+          }).onConflictDoNothing();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to record room co-sessions:', err);
+    }
+  }
 
   // Non-blocking achievement check
   checkAchievements({

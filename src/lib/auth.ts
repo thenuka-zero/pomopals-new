@@ -5,6 +5,7 @@ import { promisify } from "util";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users } from "./db/schema";
+import { checkAchievements } from "./achievement-checker";
 
 const scryptAsync = promisify(scrypt);
 
@@ -79,6 +80,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/",
   },
   callbacks: {
+    async signIn({ user }) {
+      if (user?.id) {
+        checkAchievements({ event: 'login', userId: user.id as string }).catch(() => {});
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;

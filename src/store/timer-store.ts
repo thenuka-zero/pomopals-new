@@ -36,6 +36,10 @@ interface TimerState {
   lastCompletedIntentionId: string | null;
   lastCompletedSessionId: string | null;
 
+  // Room context for session recording
+  roomId: string | null;
+  roomParticipantCount: number | null;
+
   // Actions
   start: () => void;
   pause: () => void;
@@ -48,6 +52,9 @@ interface TimerState {
   setCurrentIntention: (text: string) => void;
   clearCurrentIntention: () => void;
   setPendingReflection: (value: boolean) => void;
+
+  // Room context
+  setRoomContext: (roomId: string | null, participantCount: number | null) => void;
 
   // For synced room mode
   syncState: (phase: TimerPhase, status: TimerStatus, timeRemaining: number, pomodoroCount: number) => void;
@@ -108,6 +115,8 @@ export const useTimerStore = create<TimerState>()(
       pendingReflection: false,
       lastCompletedIntentionId: null,
       lastCompletedSessionId: null,
+      roomId: null,
+      roomParticipantCount: null,
 
       updateSettings: (newSettings) => {
         const settings = { ...get().settings, ...newSettings };
@@ -218,6 +227,7 @@ export const useTimerStore = create<TimerState>()(
       setCurrentIntention: (text) => set({ currentIntention: text }),
       clearCurrentIntention: () => set({ currentIntention: "", lastCompletedIntentionId: null }),
       setPendingReflection: (value) => set({ pendingReflection: value }),
+      setRoomContext: (roomId, participantCount) => set({ roomId, roomParticipantCount: participantCount }),
     }),
     {
       name: "pomo-timer",

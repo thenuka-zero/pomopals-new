@@ -27,6 +27,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const [failCount, setFailCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
   const syncState = useTimerStore((s) => s.syncState);
+  const setRoomContext = useTimerStore((s) => s.setRoomContext);
   const timerPhase = useTimerStore((s) => s.phase);
   const currentIntention = useTimerStore((s) => s.currentIntention);
   const pendingReflection = useTimerStore((s) => s.pendingReflection);
@@ -48,6 +49,17 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   useEffect(() => {
     intentionIdRef.current = intentionId;
   }, [intentionId]);
+
+  // Set room context in timer store for session recording
+  useEffect(() => {
+    if (room) {
+      setRoomContext(roomId, room.participants.length);
+    }
+    return () => {
+      // Clear room context when leaving the room view
+      setRoomContext(null, null);
+    };
+  }, [roomId, room?.participants.length, setRoomContext]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch intentionsEnabled setting
   useEffect(() => {

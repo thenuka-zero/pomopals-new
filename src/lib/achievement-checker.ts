@@ -81,8 +81,8 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
         if (totalCompleted >= 500) await unlock('pomodoro-pro');
         if (totalCompleted >= 1000) await unlock('the-legend');
 
-        // The Answer (exactly 42 — check if we just crossed it)
-        if (totalCompleted >= 42 && !unlocked.has('the-answer')) {
+        // The Answer (exactly 42)
+        if (totalCompleted === 42 && !unlocked.has('the-answer')) {
           await unlock('the-answer');
         }
 

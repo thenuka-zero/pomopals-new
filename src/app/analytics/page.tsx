@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { PeriodAnalytics, AnalyticsPeriod, PomodoroSession } from "@/lib/types";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import AchievementDashboardWidget from "@/components/AchievementDashboardWidget";
+import IntentionsDashboardWidget from "@/components/IntentionsDashboardWidget";
 import { format, parseISO } from "date-fns";
 
 const PERIOD_OPTIONS: { label: string; value: AnalyticsPeriod; count: number }[] = [
@@ -211,8 +212,9 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Achievements widget */}
-      <div className="mt-6">
+      {/* Intentions + Achievements widgets */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <IntentionsDashboardWidget />
         <AchievementDashboardWidget />
       </div>
     </div>
