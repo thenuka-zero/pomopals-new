@@ -96,7 +96,7 @@ export default function Navbar() {
             ) : session ? (
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
-                <NavLink href="/library" active={pathname === "/library"} title="Library">📚</NavLink>
+                <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <span className="relative">
                   <NavLink href="/trophies" active={pathname === "/trophies"} title="Trophies">🏆</NavLink>
                   {hasPendingAchievements && (
@@ -131,7 +131,7 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2 ml-3">
-                <NavLink href="/library" active={pathname === "/library"} title="Library">📚</NavLink>
+                <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <button
                   onClick={() => { setModalMode("login"); setShowAuth(true); }}
                   className="px-4 py-1.5 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"

@@ -118,55 +118,69 @@ export default function AnalyticsPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-          }
-          label="Focus Time"
-          value={
-            focusHours > 0
-              ? `${focusHours}h ${focusMins}m`
-              : `${focusMins}m`
-          }
-          color="#E54B4B"
-        />
-        <StatCard
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          }
-          label="Pomodoros"
-          value={totalPomodoros.toString()}
-          subtitle={`${completedPomodoros} completed`}
-          color="#E54B4B"
-        />
-        <StatCard
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6EAE3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20V10" />
-              <path d="M18 20V4" />
-              <path d="M6 20v-4" />
-            </svg>
-          }
-          label="Completion Rate"
-          value={`${overallCompletionRate}%`}
-          color="#6EAE3E"
-        />
-        <StatCard
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          }
-          label="Current Streak"
-          value={`${streak} day${streak !== 1 ? "s" : ""}`}
-          color="#E54B4B"
-        />
+        {loading ? (
+          <>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-[#F0E6D3] animate-pulse mb-2" />
+                <div className="h-7 w-16 bg-[#F0E6D3] rounded animate-pulse mb-1" />
+                <div className="h-3 w-20 bg-[#F0E6D3] rounded animate-pulse" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              }
+              label="Focus Time"
+              value={
+                focusHours > 0
+                  ? `${focusHours}h ${focusMins}m`
+                  : `${focusMins}m`
+              }
+              color="#E54B4B"
+            />
+            <StatCard
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              }
+              label="Pomodoros"
+              value={totalPomodoros.toString()}
+              subtitle={`${completedPomodoros} completed`}
+              color="#E54B4B"
+            />
+            <StatCard
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6EAE3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20V10" />
+                  <path d="M18 20V4" />
+                  <path d="M6 20v-4" />
+                </svg>
+              }
+              label="Completion Rate"
+              value={`${overallCompletionRate}%`}
+              color="#6EAE3E"
+            />
+            <StatCard
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E54B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              }
+              label="Current Streak"
+              value={`${streak} day${streak !== 1 ? "s" : ""}`}
+              color="#E54B4B"
+            />
+          </>
+        )}
       </div>
 
       {/* Chart */}

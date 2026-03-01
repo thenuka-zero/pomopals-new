@@ -70,186 +70,125 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#3D2C2C]/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-[#3D2C2C] mb-6">Timer Settings</h2>
+    <div className="fixed inset-0 bg-[#3D2C2C]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-5 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-[#3D2C2C] mb-4">Settings</h2>
 
-        <div className="space-y-4">
+        {/* Timer durations — 2x2 grid */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="block text-sm text-[#5C4033] font-semibold mb-1">Focus Duration (minutes)</label>
+            <label className="block text-xs text-[#8B7355] font-semibold mb-1">Focus (min)</label>
             <input
               type="number"
               min={1}
               max={120}
               value={local.workDuration}
               onChange={(e) => setLocal({ ...local, workDuration: parseInt(e.target.value) || 1 })}
-              className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
+              className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
             />
           </div>
-
           <div>
-            <label className="block text-sm text-[#5C4033] font-semibold mb-1">Short Break (minutes)</label>
+            <label className="block text-xs text-[#8B7355] font-semibold mb-1">Short break (min)</label>
             <input
               type="number"
               min={1}
               max={60}
               value={local.shortBreakDuration}
               onChange={(e) => setLocal({ ...local, shortBreakDuration: parseInt(e.target.value) || 1 })}
-              className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
+              className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
             />
           </div>
-
           <div>
-            <label className="block text-sm text-[#5C4033] font-semibold mb-1">Long Break (minutes)</label>
+            <label className="block text-xs text-[#8B7355] font-semibold mb-1">Long break (min)</label>
             <input
               type="number"
               min={1}
               max={60}
               value={local.longBreakDuration}
               onChange={(e) => setLocal({ ...local, longBreakDuration: parseInt(e.target.value) || 1 })}
-              className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
+              className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
             />
           </div>
-
           <div>
-            <label className="block text-sm text-[#5C4033] font-semibold mb-1">Long Break After (pomodoros)</label>
+            <label className="block text-xs text-[#8B7355] font-semibold mb-1">Long break after</label>
             <input
               type="number"
               min={2}
               max={10}
               value={local.longBreakInterval}
               onChange={(e) => setLocal({ ...local, longBreakInterval: parseInt(e.target.value) || 4 })}
-              className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
+              className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
             />
           </div>
-
-          <div className="border-t border-[#F0E6D3] pt-4">
-            <h3 className="text-sm font-bold text-[#3D2C2C] mb-3">Behaviour</h3>
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <div>
-                <p className="text-sm text-[#5C4033] font-semibold">Auto-start next phase</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Automatically start breaks and work sessions when the timer ends.
-                </p>
-              </div>
-              <button
-                onClick={() => setLocal({ ...local, autoStartBreaks: !local.autoStartBreaks })}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                  local.autoStartBreaks ? "bg-[#6EAE3E]" : "bg-gray-300"
-                }`}
-                role="switch"
-                aria-checked={local.autoStartBreaks}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                    local.autoStartBreaks ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="border-t border-[#F0E6D3] pt-4">
-            <h3 className="text-sm font-bold text-[#3D2C2C] mb-3">Notifications</h3>
-            <div>
-              <label className="block text-sm text-[#5C4033] font-semibold mb-1">
-                Notification Sound
-              </label>
-              <select
-                value={local.notificationSound ?? "none"}
-                onChange={(e) =>
-                  setLocal({
-                    ...local,
-                    notificationSound: e.target.value as "none" | "bell" | "digital",
-                  })
-                }
-                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
-              >
-                <option value="none">None (silent)</option>
-                <option value="bell">Bell</option>
-                <option value="digital">Digital beep</option>
-              </select>
-            </div>
-          </div>
         </div>
 
-        {/* Privacy Section */}
-        <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
-          <h3 className="font-semibold text-[#3D2C2C] mb-2">Privacy</h3>
-          {settingsLoaded ? (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-[#3D2C2C] font-medium">
-                  Share my Pomodoro sessions with friends
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Friends can see when you&apos;re focusing and request to join your rooms.
-                </p>
-              </div>
-              <button
-                onClick={handleBroadcastToggle}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                  broadcastEnabled ? "bg-[#6EAE3E]" : "bg-gray-300"
-                }`}
-                role="switch"
-                aria-checked={broadcastEnabled}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                    broadcastEnabled ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          ) : (
-            <div className="h-10 bg-[#F0E6D3] rounded-xl animate-pulse" />
-          )}
+        {/* Sound */}
+        <div className="mb-3">
+          <label className="block text-xs text-[#8B7355] font-semibold mb-1">Sound</label>
+          <select
+            value={local.notificationSound ?? "none"}
+            onChange={(e) =>
+              setLocal({ ...local, notificationSound: e.target.value as "none" | "bell" | "digital" })
+            }
+            className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
+          >
+            <option value="none">None (silent)</option>
+            <option value="bell">Bell</option>
+            <option value="digital">Digital beep</option>
+          </select>
         </div>
 
-        {/* Features Section */}
-        <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
-          <h3 className="font-semibold text-[#3D2C2C] mb-2">Features</h3>
+        {/* Toggles */}
+        <div className="space-y-2.5 border-t border-[#F0E6D3] pt-3">
+          <ToggleRow
+            label="Auto-start next phase"
+            checked={local.autoStartBreaks}
+            onChange={() => setLocal({ ...local, autoStartBreaks: !local.autoStartBreaks })}
+          />
           {settingsLoaded ? (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-[#3D2C2C] font-medium">Intentions</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Set focus intentions before each session
-                </p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={intentionsEnabled}
-                onClick={handleIntentionsToggle}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                  intentionsEnabled ? "bg-[#E54B4B]" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                    intentionsEnabled ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
+            <>
+              <ToggleRow label="Share sessions with friends" checked={broadcastEnabled} onChange={handleBroadcastToggle} />
+              <ToggleRow label="Intentions" checked={intentionsEnabled} onChange={handleIntentionsToggle} color="#E54B4B" />
+            </>
           ) : (
-            <div className="h-10 bg-[#F0E6D3] rounded-xl animate-pulse" />
+            <div className="h-16 bg-[#F0E6D3] rounded-lg animate-pulse" />
           )}
         </div>
 
         {status !== "idle" && (
-          <p className="text-[#E54B4B] text-sm mt-4 font-semibold">Changes will apply when the timer is idle.</p>
+          <p className="text-[#E54B4B] text-xs mt-3 font-semibold">Changes apply when the timer is idle.</p>
         )}
 
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-[#FDF6EC] border-2 border-[#F0E6D3] text-[#5C4033] rounded-xl font-bold hover:bg-[#F5EDE0] transition-colors">
+        <div className="flex gap-2 mt-4">
+          <button onClick={onClose} className="flex-1 px-3 py-2 bg-[#FDF6EC] border border-[#F0E6D3] text-[#5C4033] rounded-lg text-sm font-bold hover:bg-[#F5EDE0] transition-colors">
             Cancel
           </button>
-          <button onClick={handleSave} className="flex-1 px-4 py-2.5 bg-[#E54B4B] text-white rounded-xl font-bold hover:bg-[#D43D3D] transition-colors shadow-md shadow-[#E54B4B]/20">
+          <button onClick={handleSave} className="flex-1 px-3 py-2 bg-[#E54B4B] text-white rounded-lg text-sm font-bold hover:bg-[#D43D3D] transition-colors shadow-sm">
             Save
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange, color = "#6EAE3E" }: { label: string; checked: boolean; onChange: () => void; color?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-[#3D2C2C] font-medium">{label}</span>
+      <button
+        onClick={onChange}
+        className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors"
+        style={{ backgroundColor: checked ? color : "#D1D5DB" }}
+        role="switch"
+        aria-checked={checked}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
+            checked ? "translate-x-[18px]" : "translate-x-[2px]"
+          }`}
+        />
+      </button>
     </div>
   );
 }

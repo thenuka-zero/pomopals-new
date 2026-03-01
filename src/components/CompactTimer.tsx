@@ -406,6 +406,7 @@ export default function CompactTimer() {
                   ? "bg-[#FFF0F0] text-[#E54B4B] hover:bg-[#FFE0E0]"
                   : "bg-[#E54B4B] text-white hover:bg-[#D43D3D] shadow-md shadow-[#E54B4B]/20"
               }`}
+              title={status === "running" ? "Pause" : "Start"}
               aria-label={status === "running" ? "Pause" : "Start"}
             >
               {status === "running" ? (
@@ -487,6 +488,7 @@ export default function CompactTimer() {
           <button
             onClick={() => setExpanded(!expanded)}
             className="w-full flex items-center justify-center py-1.5 text-[#B8A080] hover:text-[#E54B4B] transition-colors"
+            title={expanded ? "Hide options" : "Show options"}
             aria-label={expanded ? "Collapse" : "Expand"}
           >
             <svg
