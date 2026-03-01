@@ -110,7 +110,7 @@ export default function CompactTimer() {
   const phaseLabel = (() => {
     switch (phase) {
       case "work":
-        return "Focus Time";
+        return "Pomodoro";
       case "shortBreak":
         return "Short Break";
       case "longBreak":

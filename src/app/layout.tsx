@@ -6,6 +6,9 @@ import Navbar from "@/components/Navbar";
 export const metadata: Metadata = {
   title: "PomoPals - Pomodoro Timer with Friends",
   description: "A cute collaborative Pomodoro timer. Focus together, track your progress, and stay productive with friends.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

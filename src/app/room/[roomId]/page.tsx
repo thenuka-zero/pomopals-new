@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import RoomView from "@/components/RoomView";
 import AuthModal from "@/components/AuthModal";
 
@@ -12,6 +12,15 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
   const [guestName, setGuestName] = useState("");
   const [joinedAsGuest, setJoinedAsGuest] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+
+  // Generate guest ID once (stable across re-renders)
+  const guestId = useMemo(
+    () => joinedAsGuest && guestName
+      ? `guest-${guestName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`
+      : "",
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [joinedAsGuest]
+  );
 
   if (status === "loading") {
     return (
@@ -33,12 +42,12 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
     );
   }
 
-  if (joinedAsGuest && guestName) {
+  if (joinedAsGuest && guestId) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <RoomView
           roomId={roomId}
-          userId={`guest-${guestName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`}
+          userId={guestId}
           userName={guestName}
         />
       </div>
