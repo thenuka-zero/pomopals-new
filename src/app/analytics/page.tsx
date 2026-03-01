@@ -212,9 +212,13 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Intentions + Achievements widgets */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Intentions Journal */}
+      <div className="mt-6">
         <IntentionsDashboardWidget />
+      </div>
+
+      {/* Achievements widget */}
+      <div className="mt-6">
         <AchievementDashboardWidget />
       </div>
     </div>
