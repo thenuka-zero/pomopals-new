@@ -433,7 +433,7 @@ export default function CompactTimer() {
 
           {/* Intention input — toggled via pencil icon */}
           {showIntentionInput && showIntentionIcon && (
-            <div className="px-5 pb-3 -mt-1">
+            <div className="px-5 pb-3 -mt-1 flex gap-2">
               <input
                 type="text"
                 value={currentIntention}
@@ -442,11 +442,16 @@ export default function CompactTimer() {
                     setCurrentIntention(e.target.value);
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && currentIntention.trim()) {
+                    setShowIntentionInput(false);
+                  }
+                }}
                 placeholder="What will you focus on?"
                 maxLength={280}
                 autoFocus
                 className={`
-                  w-full px-3 py-2 rounded-lg text-sm
+                  flex-1 px-3 py-2 rounded-lg text-sm
                   bg-[#F0E6D3]/40 border
                   ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
                   text-[#3D2C2C] placeholder-[#A08060]
@@ -454,6 +459,17 @@ export default function CompactTimer() {
                   transition-colors
                 `}
               />
+              <button
+                onClick={() => setShowIntentionInput(false)}
+                disabled={!currentIntention.trim()}
+                className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#E54B4B] text-white hover:bg-[#D43D3D] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                title="Set intention"
+                aria-label="Confirm intention"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
             </div>
           )}
 

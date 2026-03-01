@@ -96,22 +96,23 @@ export default function Navbar() {
             ) : session ? (
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
-                <NavLink href="/library" active={pathname === "/library"}>Library</NavLink>
+                <NavLink href="/library" active={pathname === "/library"} title="Library">📚</NavLink>
                 <span className="relative">
-                  <NavLink href="/trophies" active={pathname === "/trophies"}>Trophies</NavLink>
+                  <NavLink href="/trophies" active={pathname === "/trophies"} title="Trophies">🏆</NavLink>
                   {hasPendingAchievements && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#E54B4B] rounded-full" />
                   )}
                 </span>
                 <Link
                   href="/friends"
+                  title="Friends"
                   className={`relative px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
                     pathname === "/friends"
                       ? "bg-[#E54B4B]/10 text-[#E54B4B]"
                       : "text-[#8B7355] hover:text-[#E54B4B]"
                   }`}
                 >
-                  Friends
+                  👥
                   {pendingRequestCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-[#E54B4B] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
                       {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
@@ -119,7 +120,7 @@ export default function Navbar() {
                   )}
                 </Link>
                 <div className="flex items-center gap-3 ml-3">
-                  <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">{session.user?.name}</span>
+                  <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
                   <button
                     onClick={() => signOut()}
                     className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors"
@@ -130,7 +131,7 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2 ml-3">
-                <NavLink href="/library" active={pathname === "/library"}>Library</NavLink>
+                <NavLink href="/library" active={pathname === "/library"} title="Library">📚</NavLink>
                 <button
                   onClick={() => { setModalMode("login"); setShowAuth(true); }}
                   className="px-4 py-1.5 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"
@@ -185,10 +186,11 @@ export default function Navbar() {
   );
 }
 
-function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+function NavLink({ href, active, children, title }: { href: string; active: boolean; children: React.ReactNode; title?: string }) {
   return (
     <Link
       href={href}
+      title={title}
       className={`px-3 py-1.5 rounded-full text-sm font-bold transition-colors ${
         active
           ? "bg-[#E54B4B]/10 text-[#E54B4B]"

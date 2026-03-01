@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import TomatoMascot from "@/components/TomatoMascot";
 import AuthModal from "@/components/AuthModal";
-import JoinRoomModal from "@/components/JoinRoomModal";
 import CompactTimer from "@/components/CompactTimer";
 
 function HomeContent() {
@@ -13,7 +13,6 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
-  const [showJoinRoom, setShowJoinRoom] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
@@ -109,25 +108,27 @@ function HomeContent() {
           <FeatureCard
             icon={
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <rect x="4" y="16" width="6" height="18" rx="3" fill="#F5A0A0" />
-                <rect x="13" y="10" width="6" height="24" rx="3" fill="#E54B4B" />
-                <rect x="22" y="14" width="6" height="20" rx="3" fill="#F5A0A0" />
-                <rect x="31" y="6" width="6" height="28" rx="3" fill="#E54B4B" />
+                <rect x="6" y="6" width="28" height="28" rx="4" fill="#FFF0F0" stroke="#E54B4B" strokeWidth="2" />
+                <rect x="10" y="11" width="12" height="2" rx="1" fill="#E54B4B" />
+                <rect x="10" y="16" width="20" height="2" rx="1" fill="#F5A0A0" />
+                <rect x="10" y="21" width="16" height="2" rx="1" fill="#F5A0A0" />
+                <rect x="10" y="26" width="18" height="2" rx="1" fill="#F5A0A0" />
               </svg>
             }
-            title="Smart Analytics"
-            description="Track full & partial Pomodoros. See your daily progress, completion rates, and focus streaks."
+            title="Library"
+            description="Read curated guides on productivity, focus, mindfulness, and making the most of your sessions."
+            href="/library"
           />
           <FeatureCard
             icon={
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <circle cx="14" cy="16" r="6" fill="#F5A0A0" />
-                <circle cx="26" cy="16" r="6" fill="#E54B4B" />
-                <path d="M8 30C8 26 11 24 14 24C16 24 17 24.5 20 26C23 24.5 24 24 26 24C29 24 32 26 32 30V32H8V30Z" fill="#E54B4B" opacity="0.8" />
+                <circle cx="20" cy="22" r="14" fill="#FFF0F0" stroke="#E54B4B" strokeWidth="2" />
+                <path d="M20 12L22.5 17.5L28.5 18L24 22L25.5 28L20 25L14.5 28L16 22L11.5 18L17.5 17.5L20 12Z" fill="#E54B4B" />
               </svg>
             }
-            title="Focus with Friends"
-            description="Create a room, share the link, and sync your Pomodoros with friends in real time."
+            title="Trophies"
+            description="Unlock achievements as you build focus habits. Track your progress across milestones and challenges."
+            href="/trophies"
           />
         </div>
       </section>
@@ -151,7 +152,6 @@ function HomeContent() {
       </footer>
 
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
-      <JoinRoomModal isOpen={showJoinRoom} onClose={() => setShowJoinRoom(false)} />
     </div>
   );
 }
@@ -164,14 +164,21 @@ export default function HomePage() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-6 text-center hover:border-[#E54B4B]/30 hover:shadow-lg hover:shadow-[#E54B4B]/5 hover:-translate-y-1 transition-all">
+function FeatureCard({ icon, title, description, href }: { icon: React.ReactNode; title: string; description: string; href?: string }) {
+  const content = (
+    <>
       <div className="flex justify-center mb-4">{icon}</div>
       <h3 className="text-lg font-bold text-[#3D2C2C] mb-2">{title}</h3>
       <p className="text-sm text-[#8B7355] leading-relaxed">{description}</p>
-    </div>
+    </>
   );
+
+  const className = "bg-white border-2 border-[#F0E6D3] rounded-2xl p-6 text-center hover:border-[#E54B4B]/30 hover:shadow-lg hover:shadow-[#E54B4B]/5 hover:-translate-y-1 transition-all";
+
+  if (href) {
+    return <Link href={href} className={className}>{content}</Link>;
+  }
+  return <div className={className}>{content}</div>;
 }
 
 function Step({ number, text }: { number: string; text: string }) {

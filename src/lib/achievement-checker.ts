@@ -81,28 +81,6 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
         if (totalCompleted >= 500) await unlock('pomodoro-pro');
         if (totalCompleted >= 1000) await unlock('the-legend');
 
-        // The Answer (exactly 42)
-        if (totalCompleted === 42 && !unlocked.has('the-answer')) {
-          await unlock('the-answer');
-        }
-
-        // Hat Trick — 3+ sessions on account creation day
-        if (!unlocked.has('hat-trick')) {
-          const [userRow] = await db.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, userId)).limit(1);
-          if (userRow) {
-            const accountDate = userRow.createdAt.split('T')[0];
-            if (session.date === accountDate) {
-              const [dayCount] = await db.select({ cnt: count() }).from(pomodoroSessions).where(and(
-                eq(pomodoroSessions.userId, userId),
-                eq(pomodoroSessions.phase, 'work'),
-                eq(pomodoroSessions.completed, true),
-                eq(pomodoroSessions.date, accountDate)
-              ));
-              if (Number(dayCount?.cnt ?? 0) >= 3) await unlock('hat-trick');
-            }
-          }
-        }
-
         // Custom Craftsman — non-default planned_duration (not 1500s)
         if (!unlocked.has('custom-craftsman') && session.plannedDuration !== 1500) {
           await unlock('custom-craftsman');
@@ -428,7 +406,6 @@ export async function runRetroactiveBackfill(userId: string): Promise<number> {
 
     if (total >= 1) await retroUnlock('first-step');
     if (total >= 10) await retroUnlock('finding-your-rhythm');
-    if (total >= 42) await retroUnlock('the-answer');
     if (total >= 100) await retroUnlock('centurion');
     if (total >= 500) await retroUnlock('pomodoro-pro');
     if (total >= 1000) await retroUnlock('the-legend');
