@@ -477,7 +477,7 @@ export default function CompactTimer() {
           {/* Active intention display when running */}
           {showActiveIntention && (
             <div className="px-5 pb-3 -mt-1">
-              <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-center gap-2">
+              <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] flex items-center justify-center gap-2">
                 <span className="text-xs">💭</span>
                 <span className="truncate">{currentIntention}</span>
               </div>

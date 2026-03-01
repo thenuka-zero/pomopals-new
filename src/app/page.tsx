@@ -99,7 +99,7 @@ function HomeContent() {
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
                 <circle cx="20" cy="20" r="16" stroke="#E54B4B" strokeWidth="3" fill="#FFF0F0" />
                 <path d="M20 12V20L26 24" stroke="#E54B4B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="20" cy="6" r="2" fill="#6EAE3E" />
+                <circle cx="20" cy="6" r="2" fill="#E54B4B" />
               </svg>
             }
             title="Focus Timer"
