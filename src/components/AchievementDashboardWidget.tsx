@@ -19,11 +19,14 @@ export default function AchievementDashboardWidget() {
 
   if (!session?.user || !session.user.emailVerified || !data) return null;
 
-  // Find 3 closest-to-unlocking counted achievements
+  const bronzeStats = data.summary.byTier.bronze;
+
+  // Find 3 closest-to-unlocking bronze counted achievements
   const closest = data.achievements
     .filter(
       (a): a is AchievementWithStatus =>
         !a.unlocked &&
+        a.tier === "bronze" &&
         a.progressType === "count" &&
         a.progressTarget != null &&
         (a.currentProgress ?? 0) > 0
@@ -51,9 +54,7 @@ export default function AchievementDashboardWidget() {
 
       {/* Summary line */}
       <div className="flex items-center gap-2 text-xs text-[#8B7355] mb-3">
-        <span className="font-semibold text-[#3D2C2C]">{data.summary.unlocked} / {data.summary.total}</span>
-        <span>·</span>
-        <span>🔥 {data.summary.currentStreak}-day streak</span>
+        <span className="font-semibold text-[#3D2C2C]">{bronzeStats.unlocked} / {bronzeStats.total} bronze</span>
       </div>
 
       {/* Closest to unlocking */}
@@ -86,7 +87,7 @@ export default function AchievementDashboardWidget() {
         </div>
       )}
 
-      {closest.length === 0 && data.summary.unlocked < data.summary.total && (
+      {closest.length === 0 && bronzeStats.unlocked < bronzeStats.total && (
         <p className="text-xs text-[#A08060]">
           Complete more sessions to make progress on achievements!
         </p>

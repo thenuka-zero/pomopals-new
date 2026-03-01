@@ -129,10 +129,6 @@ function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"
         <span className="text-lg font-bold text-[#3D2C2C]">
           {bronzeStats.unlocked} / {bronzeStats.total} bronze achievements
         </span>
-        <span className="text-[#8B7355] text-sm">·</span>
-        <span className="text-sm text-[#8B7355]">
-          🍅 {summary.totalPomodoros.toLocaleString()} pomodoros
-        </span>
       </div>
       <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden">
         <div
