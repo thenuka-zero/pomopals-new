@@ -2,16 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { TimerSettings } from "@/lib/types";
+import { TimerPhase, TimerSettings, TimerStatus } from "@/lib/types";
+
+interface SoloTimerState {
+  phase: TimerPhase;
+  status: TimerStatus;
+  timeRemaining: number;
+  pomodoroCount: number;
+  settings: TimerSettings;
+}
 
 interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
   userName: string;
+  timerState: SoloTimerState;
 }
 
-export default function CreateRoomModal({ isOpen, onClose, userId, userName }: CreateRoomModalProps) {
+export default function CreateRoomModal({ isOpen, onClose, userId, userName, timerState }: CreateRoomModalProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [settings, setSettings] = useState<TimerSettings>({
@@ -22,6 +31,12 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
   });
   const [loading, setLoading] = useState(false);
 
+  // Timer is active if it's running or paused (not idle)
+  const timerActive = timerState.status !== "idle";
+
+  // When timer is active, use the solo timer's settings
+  const effectiveSettings = timerActive ? timerState.settings : settings;
+
   if (!isOpen) return null;
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -31,7 +46,13 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostId: userId, hostName: userName, name: name || "Pomodoro Room", settings }),
+        body: JSON.stringify({
+          hostId: userId,
+          hostName: userName,
+          name: name || "Pomodoro Room",
+          settings: effectiveSettings,
+          ...(timerActive ? { timerState } : {}),
+        }),
       });
       const room = await res.json();
       router.push(`/room/${room.id}`);
@@ -58,6 +79,12 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
             />
           </div>
 
+          {timerActive && (
+            <div className="bg-[#FFF8F0] border-2 border-[#F5D0A0] rounded-xl px-4 py-3 text-sm text-[#8B6914] font-medium">
+              Continuing your current session — settings are inherited from your active timer.
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-[#5C4033] font-semibold mb-1">Focus (min)</label>
@@ -65,9 +92,10 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
                 type="number"
                 min={1}
                 max={120}
-                value={settings.workDuration}
+                value={effectiveSettings.workDuration}
                 onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) || 25 })}
-                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
+                disabled={timerActive}
+                className={`w-full border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors ${timerActive ? "bg-[#F0E6D3] opacity-60 cursor-not-allowed" : "bg-[#FDF6EC]"}`}
               />
             </div>
             <div>
@@ -76,9 +104,10 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName }: C
                 type="number"
                 min={1}
                 max={60}
-                value={settings.shortBreakDuration}
+                value={effectiveSettings.shortBreakDuration}
                 onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
-                className="w-full bg-[#FDF6EC] border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors"
+                disabled={timerActive}
+                className={`w-full border-2 border-[#F0E6D3] rounded-xl px-4 py-2.5 text-[#3D2C2C] focus:outline-none focus:border-[#6EAE3E] transition-colors ${timerActive ? "bg-[#F0E6D3] opacity-60 cursor-not-allowed" : "bg-[#FDF6EC]"}`}
               />
             </div>
           </div>

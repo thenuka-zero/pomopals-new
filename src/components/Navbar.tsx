@@ -7,9 +7,36 @@ import { useState } from "react";
 import AuthModal from "./AuthModal";
 
 export default function Navbar() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [showAuth, setShowAuth] = useState(false);
+  const [modalMode, setModalMode] = useState<"login" | "signup">("login");
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
+
+  const showVerificationBanner =
+    session?.user && !session.user.emailVerified && !bannerDismissed;
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    setResendMessage("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResendMessage(data.message || "Verification email sent!");
+      } else {
+        setResendMessage(data.error || "Could not resend. Try again later.");
+      }
+    } catch {
+      setResendMessage("Could not resend. Try again later.");
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   return (
     <>
@@ -36,32 +63,73 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-1">
-            <NavLink href="/timer" active={pathname === "/timer"}>Timer</NavLink>
-            {session && <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>}
-
-            {session ? (
-              <div className="flex items-center gap-3 ml-3">
-                <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">{session.user?.name}</span>
+            {status === "loading" ? (
+              <div className="ml-3 w-20 h-8 bg-[#F0E6D3] rounded-full animate-pulse" />
+            ) : session ? (
+              <>
+                <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
+                <div className="flex items-center gap-3 ml-3">
+                  <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">{session.user?.name}</span>
+                  <button
+                    onClick={() => signOut()}
+                    className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 ml-3">
                 <button
-                  onClick={() => signOut()}
-                  className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors"
+                  onClick={() => { setModalMode("login"); setShowAuth(true); }}
+                  className="px-4 py-1.5 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"
                 >
-                  Sign Out
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { setModalMode("signup"); setShowAuth(true); }}
+                  className="px-4 py-1.5 bg-[#E54B4B] text-white rounded-full text-sm font-bold hover:bg-[#D43D3D] transition-colors shadow-sm"
+                >
+                  Sign Up
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowAuth(true)}
-                className="ml-3 px-4 py-1.5 bg-[#E54B4B] text-white rounded-full text-sm font-bold hover:bg-[#D43D3D] transition-colors shadow-sm"
-              >
-                Sign In
-              </button>
             )}
           </div>
         </div>
       </nav>
 
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      {/* Email verification banner */}
+      {showVerificationBanner && (
+        <div className="border-b border-[#F0E6D3] px-4 py-2.5" style={{ backgroundColor: "#FFF8F0" }}>
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 text-sm">
+            <div className="flex items-center gap-2 text-[#5C4033]">
+              <span>&#128231;</span>
+              <span>
+                Please verify your email to save your pomodoro stats.
+                {resendMessage && (
+                  <span className="ml-2 text-[#8B7355]">{resendMessage}</span>
+                )}
+              </span>
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+                className="text-[#E54B4B] font-semibold hover:underline disabled:opacity-50 ml-1"
+              >
+                {resendLoading ? "Sending..." : "Resend email"}
+              </button>
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="text-[#A08060] hover:text-[#E54B4B] transition-colors flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              &#10005;
+            </button>
+          </div>
+        </div>
+      )}
+
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} initialMode={modalMode} />
     </>
   );
 }

@@ -1,19 +1,67 @@
 "use client";
 
-import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
 import TomatoMascot from "@/components/TomatoMascot";
 import AuthModal from "@/components/AuthModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
+import CompactTimer from "@/components/CompactTimer";
 
-export default function LandingPage() {
+function HomeContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    const verified = searchParams.get("verified");
+    const error = searchParams.get("error");
+
+    if (verified === "true") {
+      setToast({ type: "success", message: "Email verified! You're all set." });
+      router.replace("/");
+    } else if (error === "invalid-token") {
+      setToast({ type: "error", message: "This verification link is invalid. Please request a new one." });
+      router.replace("/");
+    } else if (error === "token-expired") {
+      setToast({ type: "error", message: "This verification link has expired. Please request a new one." });
+      router.replace("/");
+    }
+  }, [searchParams, router]);
+
+  // Auto-dismiss toast after 5 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col">
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg border-2 text-sm font-semibold flex items-center gap-2 transition-all ${
+            toast.type === "success"
+              ? "bg-white border-[#6EAE3E]/30 text-[#3D2C2C]"
+              : "bg-white border-[#E54B4B]/30 text-[#3D2C2C]"
+          }`}
+        >
+          <span>{toast.type === "success" ? "\uD83C\uDF45" : "\u26A0\uFE0F"}</span>
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 text-[#A08060] hover:text-[#E54B4B] transition-colors"
+          >
+            &#10005;
+          </button>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
         {/* Floating mascot with bounce animation */}
@@ -29,15 +77,13 @@ export default function LandingPage() {
           Focus together, grow together. A cute Pomodoro timer to share with friends.
         </p>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <Link
-            href="/timer"
-            className="px-8 py-3.5 bg-[#E54B4B] text-white rounded-full text-lg font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:shadow-xl hover:shadow-[#E54B4B]/30 hover:-translate-y-0.5 transition-all"
-          >
-            Start Focusing
-          </Link>
+        {/* Compact Timer Widget */}
+        <div className="w-full max-w-lg mb-8">
+          <CompactTimer />
+        </div>
 
+        {/* Secondary Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <button
             onClick={() => setShowJoinRoom(true)}
             className="px-8 py-3.5 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full text-lg font-bold hover:border-[#E54B4B]/40 hover:bg-[#FFF8F0] hover:-translate-y-0.5 transition-all"
@@ -117,6 +163,14 @@ export default function LandingPage() {
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       <JoinRoomModal isOpen={showJoinRoom} onClose={() => setShowJoinRoom(false)} />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
 
