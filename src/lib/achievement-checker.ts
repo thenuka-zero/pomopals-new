@@ -1,7 +1,7 @@
 import { db } from './db';
 import {
   pomodoroSessions, userAchievements, achievementProgress,
-  userStats, friendships, roomCoSessions, users, userSettings
+  userStats, friendships, roomCoSessions, users
 } from './db/schema';
 import { eq, and, desc, count, sql, lt, lte, gte, ne, inArray } from 'drizzle-orm';
 import { PomodoroSession } from './types';
@@ -165,26 +165,6 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
 
         // ── Easter eggs ───────────────────────────────────────────────────
 
-        // Early Bird — started_at before 07:00 in user's timezone
-        if (!unlocked.has('early-bird') && session.timezone && session.startedAt) {
-          const hour = getHourInTimezone(session.startedAt, session.timezone);
-          if (hour < 7) await unlock('early-bird');
-        }
-
-        // Night Owl — ended_at at or after 23:00 in user's timezone
-        if (!unlocked.has('night-owl') && session.timezone && session.endedAt) {
-          const hour = getHourInTimezone(session.endedAt, session.timezone);
-          if (hour >= 23) await unlock('night-owl');
-        }
-
-        // Fresh Start — January 1st (UTC date)
-        if (!unlocked.has('fresh-start')) {
-          const parts = session.date.split('-'); // YYYY-MM-DD
-          if (parts[1] === '01' && parts[2] === '01') {
-            await unlock('fresh-start');
-          }
-        }
-
         // Back From the Dead — 30+ day gap since last session
         if (!unlocked.has('back-from-the-dead')) {
           // Find the most recent completed session BEFORE this one
@@ -222,22 +202,6 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
           }
         }
 
-        // Stealth Mode — session recorded when broadcast is off
-        const [settingsRow] = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
-        const broadcastEnabled = settingsRow?.broadcastEnabled ?? true;
-        if (!broadcastEnabled) {
-          await db
-            .update(userStats)
-            .set({
-              stealthSessionsCount: sql`${userStats.stealthSessionsCount} + 1`,
-              updatedAt: now,
-            })
-            .where(eq(userStats.userId, userId));
-
-          // Re-read count to check threshold
-          const [statsRow] = await db.select({ cnt: userStats.stealthSessionsCount }).from(userStats).where(eq(userStats.userId, userId)).limit(1);
-          if ((statsRow?.cnt ?? 0) >= 10) await unlock('stealth-mode');
-        }
       }
     }
 
@@ -455,35 +419,6 @@ export async function runRetroactiveBackfill(userId: string): Promise<number> {
     if (friendCount >= 5) await retroUnlock('building-your-circle');
     if (friendCount >= 25) await retroUnlock('the-connector');
 
-    // Early Bird / Night Owl (UTC-based approximation for retroactive)
-    const [earlyRow] = await db.select({ cnt: sql<number>`count(*)` }).from(pomodoroSessions)
-      .where(and(
-        eq(pomodoroSessions.userId, userId),
-        eq(pomodoroSessions.phase, 'work'),
-        eq(pomodoroSessions.completed, true),
-        sql`CAST(strftime('%H', ${pomodoroSessions.startedAt}) AS INTEGER) < 7`
-      ));
-    if ((earlyRow?.cnt ?? 0) > 0) await retroUnlock('early-bird');
-
-    const [nightRow] = await db.select({ cnt: sql<number>`count(*)` }).from(pomodoroSessions)
-      .where(and(
-        eq(pomodoroSessions.userId, userId),
-        eq(pomodoroSessions.phase, 'work'),
-        eq(pomodoroSessions.completed, true),
-        sql`CAST(strftime('%H', ${pomodoroSessions.endedAt}) AS INTEGER) >= 23`
-      ));
-    if ((nightRow?.cnt ?? 0) > 0) await retroUnlock('night-owl');
-
-    // Fresh Start (Jan 1st)
-    const [freshRow] = await db.select({ cnt: sql<number>`count(*)` }).from(pomodoroSessions)
-      .where(and(
-        eq(pomodoroSessions.userId, userId),
-        eq(pomodoroSessions.phase, 'work'),
-        eq(pomodoroSessions.completed, true),
-        sql`strftime('%m-%d', ${pomodoroSessions.date}) = '01-01'`
-      ));
-    if ((freshRow?.cnt ?? 0) > 0) await retroUnlock('fresh-start');
-
     // Back From the Dead
     const allSessionDates = await db
       .select({ date: pomodoroSessions.date, endedAt: pomodoroSessions.endedAt })
@@ -651,22 +586,6 @@ async function computeStudyBuddy(userId: string): Promise<number> {
     if (days.size > maxDays) maxDays = days.size;
   }
   return maxDays;
-}
-
-function getHourInTimezone(isoString: string, timezone: string): number {
-  try {
-    const date = new Date(isoString);
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      hour12: false,
-      timeZone: timezone,
-    });
-    const parts = formatter.formatToParts(date);
-    const hourPart = parts.find((p) => p.type === 'hour');
-    return parseInt(hourPart?.value ?? '0', 10);
-  } catch {
-    return new Date(isoString).getUTCHours();
-  }
 }
 
 async function ensureUserStats(userId: string, now: string): Promise<void> {
