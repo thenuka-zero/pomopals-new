@@ -156,10 +156,9 @@ function HomeContent() {
           />
           <FeatureCard
             icon={
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <circle cx="20" cy="20" r="16" fill="#FFF0F0" stroke="#F5A0A0" strokeWidth="2" strokeDasharray="4 3" />
-                <text x="20" y="26" textAnchor="middle" fill="#E54B4B" fontSize="20" fontWeight="bold" fontFamily="sans-serif">?</text>
-              </svg>
+              <div className="w-10 h-10 rounded-full border-2 border-dashed border-[#F5A0A0] bg-[#FFF0F0] flex items-center justify-center">
+                <span className="text-[#E54B4B] text-xl font-bold leading-none">?</span>
+              </div>
             }
             title="More Coming Soon"
             description="New features and improvements are on the way. Stay tuned!"
