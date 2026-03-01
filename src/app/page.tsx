@@ -93,7 +93,7 @@ function HomeContent() {
 
       {/* Feature Cards */}
       <section className="px-4 pb-16 max-w-4xl mx-auto w-full">
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <FeatureCard
             icon={
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -103,7 +103,31 @@ function HomeContent() {
               </svg>
             }
             title="Focus Timer"
-            description="25-minute Pomodoros with customizable work & break durations. Stay in the zone!"
+            description="Customizable Pomodoros with work & break durations."
+          />
+          <FeatureCard
+            icon={
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <circle cx="14" cy="16" r="6" fill="#F5A0A0" />
+                <circle cx="26" cy="16" r="6" fill="#E54B4B" />
+                <path d="M8 30C8 26 11 24 14 24C16 24 17 24.5 20 26C23 24.5 24 24 26 24C29 24 32 26 32 30V32H8V30Z" fill="#E54B4B" opacity="0.8" />
+              </svg>
+            }
+            title="Focus with Friends"
+            description="Create rooms, share links, and sync Pomodoros in real time."
+          />
+          <FeatureCard
+            icon={
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <rect x="4" y="16" width="6" height="18" rx="3" fill="#F5A0A0" />
+                <rect x="13" y="10" width="6" height="24" rx="3" fill="#E54B4B" />
+                <rect x="22" y="14" width="6" height="20" rx="3" fill="#F5A0A0" />
+                <rect x="31" y="6" width="6" height="28" rx="3" fill="#E54B4B" />
+              </svg>
+            }
+            title="Analytics"
+            description="Track your daily progress, completion rates, and focus habits."
+            href="/analytics"
           />
           <FeatureCard
             icon={
@@ -116,7 +140,7 @@ function HomeContent() {
               </svg>
             }
             title="Library"
-            description="Read curated guides on productivity, focus, mindfulness, and making the most of your sessions."
+            description="Curated guides on productivity, focus, and mindfulness."
             href="/library"
           />
           <FeatureCard
@@ -127,7 +151,7 @@ function HomeContent() {
               </svg>
             }
             title="Trophies"
-            description="Unlock achievements as you build focus habits. Track your progress across milestones and challenges."
+            description="Unlock achievements as you build focus habits."
             href="/trophies"
           />
         </div>
