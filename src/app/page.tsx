@@ -93,7 +93,7 @@ function HomeContent() {
 
       {/* Feature Cards */}
       <section className="px-4 pb-16 max-w-4xl mx-auto w-full">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
           <FeatureCard
             icon={
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
