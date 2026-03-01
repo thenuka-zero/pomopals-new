@@ -167,7 +167,7 @@ function HomeContent() {
       </section>
 
       {/* How it works */}
-      <section className="px-4 pb-20 max-w-2xl mx-auto w-full">
+      <section className="px-4 pb-20 max-w-4xl mx-auto w-full">
         <h2 className="text-2xl font-bold text-[#3D2C2C] text-center mb-8">How It Works</h2>
         <div className="flex flex-col gap-4">
           <Step number="1" text="Start a 25-minute focus session (or customize the length)" />
