@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakDuration: 15,
   longBreakInterval: 4,
   notificationSound: "bell",
+  autoStartBreaks: true,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────

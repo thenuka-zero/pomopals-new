@@ -29,6 +29,7 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
     longBreakDuration: 15,
     longBreakInterval: 4,
     notificationSound: "bell",
+    autoStartBreaks: true,
   });
   const [loading, setLoading] = useState(false);
   const [timerInitMode, setTimerInitMode] = useState<"continue" | "fresh">("continue");

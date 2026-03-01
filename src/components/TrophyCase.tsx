@@ -1,0 +1,356 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { AchievementWithStatus, AchievementTier, AchievementCategory, GetAchievementsResponse } from "@/lib/types";
+
+// ── Tier helpers ─────────────────────────────────────────────────────────────
+
+function tierColor(tier: AchievementTier) {
+  return {
+    bronze:   { text: "#CD7F32", bg: "#FFF3E0", border: "#F4C07A", badge: "🥉" },
+    silver:   { text: "#757575", bg: "#F5F5F5", border: "#BDBDBD", badge: "🥈" },
+    gold:     { text: "#F9A825", bg: "#FFFDE7", border: "#FDD835", badge: "🥇" },
+    platinum: { text: "#1565C0", bg: "#E3F2FD", border: "#90CAF9", badge: "💎" },
+  }[tier];
+}
+
+function TierBadge({ tier }: { tier: AchievementTier }) {
+  const c = tierColor(tier);
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase"
+      style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}` }}
+    >
+      {c.badge} {tier}
+    </span>
+  );
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+
+function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; target: number; color?: string }) {
+  const pct = Math.min(100, Math.round((current / target) * 100));
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px] text-[#8B7355] mb-1">
+        <span>{current.toLocaleString()} / {target.toLocaleString()}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="w-full h-1.5 bg-[#F0E6D3] rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Individual Achievement Card ────────────────────────────────────────────────
+
+function AchievementCard({ achievement, highlighted }: { achievement: AchievementWithStatus; highlighted?: boolean }) {
+  const isLocked = !achievement.unlocked;
+  const isSecretLocked = achievement.isSecret && isLocked;
+  const tierC = tierColor(achievement.tier);
+
+  return (
+    <div
+      id={`achievement-${achievement.id}`}
+      className={`
+        relative rounded-2xl border-2 p-4 flex flex-col gap-2 transition-all duration-300
+        ${isLocked ? "opacity-70" : ""}
+        ${highlighted ? "ring-2 ring-[#E54B4B] ring-offset-2" : ""}
+        ${isSecretLocked ? "bg-[#2A1F1F]" : "bg-white"}
+      `}
+      style={{
+        borderColor: highlighted ? "#E54B4B" : isLocked ? "#F0E6D3" : tierC.border,
+        filter: isLocked && !isSecretLocked ? "grayscale(0.6)" : undefined,
+      }}
+    >
+      {/* Tier badge */}
+      <div className="flex items-center justify-between">
+        <TierBadge tier={achievement.tier} />
+        {achievement.retroactivelyAwarded && (
+          <span className="text-[9px] text-[#A08060] font-medium">★ Retroactive</span>
+        )}
+      </div>
+
+      {/* Emoji + name */}
+      <div className="flex flex-col items-center text-center gap-1 py-1">
+        <span
+          className="text-3xl"
+          role="img"
+          aria-label={achievement.name}
+          style={isSecretLocked ? { filter: "grayscale(1) opacity(0.3)" } : undefined}
+        >
+          {achievement.emoji}
+        </span>
+        <span
+          className={`text-sm font-bold leading-tight ${isSecretLocked ? "text-[#6B5555]" : "text-[#3D2C2C]"}`}
+        >
+          {achievement.name}
+        </span>
+      </div>
+
+      {/* Description / hint */}
+      <p className={`text-[11px] text-center leading-snug ${isSecretLocked ? "text-[#6B5555]" : "text-[#8B7355]"}`}>
+        {isSecretLocked ? achievement.hint : isLocked ? achievement.hint : (achievement.description ?? achievement.hint)}
+      </p>
+
+      {/* Progress bar (count achievements) */}
+      {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && (
+        <ProgressBar
+          current={achievement.currentProgress ?? 0}
+          target={achievement.progressTarget}
+          color={achievement.unlocked ? "#6EAE3E" : "#E54B4B"}
+        />
+      )}
+
+      {/* Unlock date */}
+      {achievement.unlocked && achievement.unlockedAt && (
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-[10px] text-[#6EAE3E] font-semibold">
+            ✓ Unlocked {new Date(achievement.unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Summary header ────────────────────────────────────────────────────────────
+
+function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"] }) {
+  const pct = Math.round((summary.unlocked / summary.total) * 100);
+  return (
+    <div className="bg-white rounded-2xl border-2 border-[#F0E6D3] p-5 mb-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
+        <span className="text-lg font-bold text-[#3D2C2C]">
+          {summary.unlocked} / {summary.total} achievements
+        </span>
+        <span className="text-[#8B7355] text-sm">·</span>
+        <span className="text-sm text-[#8B7355]">
+          🔥 {summary.currentStreak}-day streak
+        </span>
+        <span className="text-[#8B7355] text-sm">·</span>
+        <span className="text-sm text-[#8B7355]">
+          🍅 {summary.totalPomodoros.toLocaleString()} pomodoros
+        </span>
+      </div>
+      <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden mb-3">
+        <div
+          className="h-full rounded-full bg-[#E54B4B] transition-all duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {(["bronze", "silver", "gold", "platinum"] as AchievementTier[]).map((tier) => {
+          const t = summary.byTier[tier];
+          const c = tierColor(tier);
+          return (
+            <span
+              key={tier}
+              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}` }}
+            >
+              {c.badge} {t.unlocked}/{t.total}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main TrophyCase component ──────────────────────────────────────────────────
+
+type CategoryFilter = "all" | AchievementCategory;
+type StatusFilter = "all" | "unlocked" | "locked";
+
+export default function TrophyCase() {
+  const { data: session } = useSession();
+  const [data, setData] = useState<GetAchievementsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [retroactiveBannerDismissed, setRetroactiveBannerDismissed] = useState(true);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("trophy-case-retroactive-banner-dismissed") === "true";
+    setRetroactiveBannerDismissed(dismissed);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user?.emailVerified) return;
+    setLoading(true);
+    fetch("/api/achievements")
+      .then((r) => r.json())
+      .then((d: GetAchievementsResponse) => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load achievements");
+        setLoading(false);
+      });
+  }, [session?.user?.emailVerified]);
+
+  if (!session?.user) {
+    return (
+      <div className="text-center py-16 text-[#8B7355]">
+        <span className="text-4xl mb-4 block">🏆</span>
+        <p className="text-lg font-semibold text-[#3D2C2C] mb-2">Sign in to view your Trophy Case</p>
+        <p className="text-sm">Achievements are saved with your account.</p>
+      </div>
+    );
+  }
+
+  if (!session.user.emailVerified) {
+    return (
+      <div className="text-center py-16">
+        <span className="text-4xl mb-4 block">📧</span>
+        <p className="text-lg font-semibold text-[#3D2C2C] mb-2">Verify your email to unlock achievements</p>
+        <p className="text-sm text-[#8B7355]">Please check your inbox and verify your email address.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="h-48 bg-[#F0E6D3] rounded-2xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return <div className="text-center py-8 text-[#E54B4B]">{error ?? "Something went wrong"}</div>;
+  }
+
+  // Filter achievements
+  let filtered = data.achievements;
+  if (categoryFilter !== "all") {
+    filtered = filtered.filter((a) => a.category === categoryFilter);
+  }
+  if (statusFilter === "unlocked") {
+    filtered = filtered.filter((a) => a.unlocked);
+  } else if (statusFilter === "locked") {
+    filtered = filtered.filter((a) => !a.unlocked);
+  }
+
+  // Sort: unlocked first (by unlockedAt desc), then locked by tier order
+  const tierOrder: Record<AchievementTier, number> = { platinum: 0, gold: 1, silver: 2, bronze: 3 };
+  filtered = [...filtered].sort((a, b) => {
+    if (a.unlocked && !b.unlocked) return -1;
+    if (!a.unlocked && b.unlocked) return 1;
+    if (a.unlocked && b.unlocked) {
+      return new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime();
+    }
+    return tierOrder[a.tier] - tierOrder[b.tier];
+  });
+
+  const hasRetroactive = data.achievements.some((a) => a.retroactivelyAwarded);
+  const showRetroactiveBanner = hasRetroactive && !retroactiveBannerDismissed;
+  const retroactiveCount = data.achievements.filter((a) => a.retroactivelyAwarded).length;
+
+  const categories: { value: CategoryFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "solo", label: "Solo" },
+    { value: "social", label: "Social" },
+    { value: "consistency", label: "Consistency" },
+    { value: "easter_egg", label: "Easter Eggs" },
+  ];
+
+  const statuses: { value: StatusFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "unlocked", label: "Unlocked" },
+    { value: "locked", label: "Locked" },
+  ];
+
+  return (
+    <div>
+      {/* Summary */}
+      <SummaryHeader summary={data.summary} />
+
+      {/* Retroactive banner */}
+      {showRetroactiveBanner && (
+        <div
+          className="rounded-2xl border-2 border-[#F0E6D3] px-5 py-4 mb-5 flex items-start justify-between gap-3"
+          style={{ backgroundColor: "#FFFBF5" }}
+        >
+          <div>
+            <p className="font-bold text-[#3D2C2C] text-sm mb-1">✨ We looked back at your history</p>
+            <p className="text-xs text-[#8B7355] leading-relaxed">
+              Based on your previous sessions and friendships, we awarded you {retroactiveCount} achievement{retroactiveCount !== 1 ? "s" : ""}. These are marked with a ★ badge.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setRetroactiveBannerDismissed(true);
+              localStorage.setItem("trophy-case-retroactive-banner-dismissed", "true");
+            }}
+            className="flex-shrink-0 text-sm font-semibold text-[#E54B4B] hover:underline whitespace-nowrap"
+          >
+            Got it
+          </button>
+        </div>
+      )}
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-1">
+          {categories.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => setCategoryFilter(c.value)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                categoryFilter === c.value
+                  ? "bg-[#E54B4B] text-white"
+                  : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#E54B4B]"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {statuses.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                statusFilter === s.value
+                  ? "bg-[#3D2C2C] text-white"
+                  : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#3D2C2C]"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Count */}
+      <p className="text-xs text-[#A08060] mb-4">
+        Showing {filtered.length} of {data.achievements.length} achievements
+      </p>
+
+      {/* Grid */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-[#A08060]">
+          No achievements match this filter.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filtered.map((achievement) => (
+            <AchievementCard key={achievement.id} achievement={achievement} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

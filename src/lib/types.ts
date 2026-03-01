@@ -16,6 +16,7 @@ export interface TimerSettings {
   longBreakDuration: number; // in minutes
   longBreakInterval: number; // after how many pomodoros
   notificationSound: "none" | "bell" | "digital"; // NEW — default "none"
+  autoStartBreaks: boolean; // auto-start breaks and work phases — default true
 }
 
 export type TimerPhase = "work" | "shortBreak" | "longBreak";
@@ -155,4 +156,124 @@ export interface RoomJoinRequest {
 
 export interface UserSettings {
   broadcastEnabled: boolean;
+  intentionsEnabled: boolean;
+}
+
+// ── Intentions ──────────────────────────────────────────────────────────────
+
+export type IntentionStatus = "pending" | "completed" | "not_completed" | "skipped";
+
+export interface Intention {
+  id: string;
+  userId: string;
+  sessionId: string | null;
+  text: string;
+  status: IntentionStatus;
+  note: string | null;
+  startedAt: string;       // ISO 8601
+  reflectedAt: string | null;
+  date: string;            // YYYY-MM-DD
+  createdAt: string;
+}
+
+export interface CreateIntentionPayload {
+  id: string;              // client-generated UUID
+  text: string;
+  startedAt: string;       // ISO 8601
+  date: string;            // YYYY-MM-DD
+}
+
+export interface ReflectIntentionPayload {
+  status: "completed" | "not_completed";
+  sessionId?: string;
+  note?: string;
+  reflectedAt: string;     // ISO 8601
+}
+
+export interface IntentionJournalEntry extends Intention {}
+
+export interface DailyIntentionStat {
+  date: string;            // YYYY-MM-DD
+  total: number;
+  completed: number;
+  completionRate: number;
+}
+
+export interface IntentionTrends {
+  totalIntentions: number;
+  completedCount: number;
+  notCompletedCount: number;
+  skippedCount: number;
+  completionRate: number;
+  currentStreak: number;   // consecutive days with >= 1 reflected intention
+  longestStreak: number;
+  last30Days: DailyIntentionStat[];
+}
+
+// ─── Achievements ─────────────────────────────────────────────────────────────
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type AchievementCategory = 'solo' | 'social' | 'consistency' | 'easter_egg';
+export type AchievementProgressType = 'binary' | 'count';
+
+export interface AchievementDefinition {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  hint: string;
+  category: AchievementCategory;
+  tier: AchievementTier;
+  isSecret: boolean;
+  progressType: AchievementProgressType;
+  progressTarget?: number;
+  toastCopy: string;
+}
+
+export interface AchievementWithStatus {
+  id: string;
+  name: string;           // "???" if isSecret && !unlocked
+  emoji: string;          // "🔒" if isSecret && !unlocked
+  description: string | null;  // null if isSecret && !unlocked
+  hint: string;
+  category: AchievementCategory;
+  tier: AchievementTier;
+  isSecret: boolean;
+  progressType: AchievementProgressType;
+  progressTarget: number | null;
+  unlocked: boolean;
+  unlockedAt: string | null;
+  currentProgress: number | null;
+  retroactivelyAwarded: boolean;
+}
+
+export interface PendingAchievement {
+  id: string;
+  name: string;
+  emoji: string;
+  tier: AchievementTier;
+  toastCopy: string;
+  unlockedAt: string;
+}
+
+export interface AchievementsSummary {
+  total: number;
+  unlocked: number;
+  byTier: {
+    bronze:   { total: number; unlocked: number };
+    silver:   { total: number; unlocked: number };
+    gold:     { total: number; unlocked: number };
+    platinum: { total: number; unlocked: number };
+  };
+  currentStreak: number;
+  totalPomodoros: number;
+}
+
+export interface GetAchievementsResponse {
+  achievements: AchievementWithStatus[];
+  summary: AchievementsSummary;
+}
+
+export interface GetPendingAchievementsResponse {
+  pending: PendingAchievement[];
 }

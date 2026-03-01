@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,10 @@ export const pomodoroSessions = sqliteTable("pomodoro_sessions", {
   completed:            integer("completed", { mode: "boolean" }).notNull(),
   completionPercentage: real("completion_percentage").notNull(), // 0-100
   date:                 text("date").notNull(),              // "YYYY-MM-DD" for grouping
+  roomId:               text("room_id"),                           // nullable
+  roomParticipantCount: integer("room_participant_count"),          // nullable
+  sessionRunId:         text("session_run_id"),                    // nullable - UUID grouping consecutive sessions
+  timezone:             text("timezone"),                          // nullable - IANA timezone string
 });
 
 // ─── Friends ──────────────────────────────────────────────────────────────────
@@ -86,6 +91,7 @@ export const userPresence = sqliteTable("user_presence", {
 export const userSettings = sqliteTable("user_settings", {
   userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   broadcastEnabled: integer("broadcast_enabled").notNull().default(1),
+  intentionsEnabled: integer("intentions_enabled", { mode: "boolean" }).notNull().default(true),
   friendLimit: integer("friend_limit").notNull().default(50),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -107,5 +113,89 @@ export const roomJoinRequests = sqliteTable(
     uniqueIndex("idx_room_join_requests_pair").on(t.roomId, t.requesterId),
     index("idx_room_join_requests_host").on(t.hostId, t.status),
     index("idx_room_join_requests_requester").on(t.requesterId, t.status),
+  ]
+);
+
+// ─── Intentions ───────────────────────────────────────────────────────────────
+
+export const intentions = sqliteTable("intentions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sessionId: text("session_id").references(() => pomodoroSessions.id, {
+    onDelete: "set null",
+  }),
+  text: text("text").notNull(),
+  status: text("status").notNull().default("pending"),
+  note: text("note"),
+  startedAt: text("started_at").notNull(),
+  reflectedAt: text("reflected_at"),
+  date: text("date").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+}, (t) => [
+  index("idx_intentions_user_id").on(t.userId),
+  index("idx_intentions_date").on(t.date),
+  index("idx_intentions_user_date").on(t.userId, t.date),
+]);
+
+// ─── Achievements ─────────────────────────────────────────────────────────────
+
+export const userAchievements = sqliteTable(
+  "user_achievements",
+  {
+    id:            text("id").primaryKey(),
+    userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    achievementId: text("achievement_id").notNull(),
+    unlockedAt:    text("unlocked_at").notNull(),
+    notifiedAt:    text("notified_at"),
+    retroactive:   integer("retroactive", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex("idx_user_achievements_pair").on(t.userId, t.achievementId),
+    index("idx_user_achievements_user").on(t.userId),
+    index("idx_user_achievements_unnotified").on(t.userId, t.notifiedAt),
+  ]
+);
+
+export const achievementProgress = sqliteTable(
+  "achievement_progress",
+  {
+    userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    achievementId: text("achievement_id").notNull(),
+    currentValue:  integer("current_value").notNull().default(0),
+    updatedAt:     text("updated_at").notNull(),
+  },
+  (t) => [
+    // composite PK
+    uniqueIndex("idx_achievement_progress_pk").on(t.userId, t.achievementId),
+  ]
+);
+
+export const userStats = sqliteTable("user_stats", {
+  userId:                text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  roomsHostedTotal:      integer("rooms_hosted_total").notNull().default(0),
+  roomsJoinedTotal:      integer("rooms_joined_total").notNull().default(0),
+  maxRoomSizeHosted:     integer("max_room_size_hosted").notNull().default(0),
+  stealthSessionsCount:  integer("stealth_sessions_count").notNull().default(0),
+  hasJoinedFriendsRoom:  integer("has_joined_friends_room", { mode: "boolean" }).notNull().default(false),
+  pinnedAchievements:    text("pinned_achievements").notNull().default("[]"),
+  updatedAt:             text("updated_at").notNull(),
+});
+
+export const roomCoSessions = sqliteTable(
+  "room_co_sessions",
+  {
+    id:            text("id").primaryKey(),
+    sessionId:     text("session_id").notNull().references(() => pomodoroSessions.id, { onDelete: "cascade" }),
+    sessionUserId: text("session_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    coUserId:      text("co_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    date:          text("date").notNull(),
+  },
+  (t) => [
+    index("idx_room_co_sessions_user_date").on(t.sessionUserId, t.date),
+    index("idx_room_co_sessions_pair").on(t.sessionUserId, t.coUserId, t.date),
   ]
 );

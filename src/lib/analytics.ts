@@ -1,10 +1,15 @@
-import { PomodoroSession, DailyAnalytics, PeriodAnalytics, AnalyticsPeriod } from "./types";
+import { PomodoroSession, DailyAnalytics, PeriodAnalytics, AnalyticsPeriod, DailyIntentionStat, IntentionTrends } from "./types";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, subWeeks, subMonths } from "date-fns";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
-import { pomodoroSessions } from "./db/schema";
+import { pomodoroSessions, intentions } from "./db/schema";
 
-export async function recordSession(session: PomodoroSession): Promise<void> {
+export async function recordSession(session: PomodoroSession & {
+  sessionRunId?: string | null;
+  timezone?: string | null;
+  roomId?: string | null;
+  roomParticipantCount?: number | null;
+}): Promise<void> {
   await db.insert(pomodoroSessions).values({
     id: session.id,
     userId: session.userId,
@@ -16,6 +21,10 @@ export async function recordSession(session: PomodoroSession): Promise<void> {
     completed: session.completed,
     completionPercentage: session.completionPercentage,
     date: session.date,
+    sessionRunId: session.sessionRunId ?? null,
+    timezone: session.timezone ?? null,
+    roomId: session.roomId ?? null,
+    roomParticipantCount: session.roomParticipantCount ?? null,
   });
 }
 
@@ -202,4 +211,86 @@ export async function getAnalyticsByPeriod(
   }
 
   return analytics;
+}
+
+export async function getIntentionTrends(userId: string): Promise<IntentionTrends> {
+  const rows = await db
+    .select()
+    .from(intentions)
+    .where(eq(intentions.userId, userId))
+    .orderBy(intentions.date);
+
+  const totalIntentions = rows.length;
+  const completedCount = rows.filter((r) => r.status === "completed").length;
+  const notCompletedCount = rows.filter((r) => r.status === "not_completed").length;
+  const skippedCount = rows.filter((r) => r.status === "skipped").length;
+  const reflectedCount = completedCount + notCompletedCount;
+  const completionRate =
+    reflectedCount > 0 ? Math.round((completedCount / reflectedCount) * 100) : 0;
+
+  // Compute last 30 days stats
+  const today = new Date();
+  const last30Days: DailyIntentionStat[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayRows = rows.filter((r) => r.date === dateStr);
+    const dayCompleted = dayRows.filter((r) => r.status === "completed").length;
+    const dayReflected =
+      dayCompleted + dayRows.filter((r) => r.status === "not_completed").length;
+    last30Days.push({
+      date: dateStr,
+      total: dayRows.length,
+      completed: dayCompleted,
+      completionRate:
+        dayReflected > 0 ? Math.round((dayCompleted / dayReflected) * 100) : 0,
+    });
+  }
+
+  // Streak calculation: walk backwards from today
+  // A day counts if it has >= 1 reflected intention (completed OR not_completed)
+  const reflectedDates = new Set(
+    rows
+      .filter((r) => r.status === "completed" || r.status === "not_completed")
+      .map((r) => r.date)
+  );
+
+  let currentStreak = 0;
+  let longestStreak = 0;
+  let tempStreak = 0;
+
+  // Walk backwards through last 365 days
+  const todayStr = today.toISOString().slice(0, 10);
+  // If today has no reflections yet, don't break streak (allow today to still be "in progress")
+  const startIdx = reflectedDates.has(todayStr) ? 0 : 1;
+
+  let currentStreakCounted = false;
+  for (let i = startIdx; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    if (reflectedDates.has(dateStr)) {
+      tempStreak++;
+      if (!currentStreakCounted) currentStreak = tempStreak;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      currentStreakCounted = true;
+      if (tempStreak > 0) {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 0;
+      }
+    }
+  }
+
+  return {
+    totalIntentions,
+    completedCount,
+    notCompletedCount,
+    skippedCount,
+    completionRate,
+    currentStreak,
+    longestStreak,
+    last30Days,
+  };
 }

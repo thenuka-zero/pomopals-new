@@ -21,6 +21,7 @@ interface TimerState {
   elapsed: number; // seconds elapsed before the last pause
 
   // Session tracking
+  sessionRunId: string; // unique ID per "sitting" — resets when reset() is called
   currentSessionStart: number | null; // Date.now() timestamp
   sessions: PomodoroSession[];
 
@@ -29,6 +30,12 @@ interface TimerState {
   hydratedAsExpired: boolean;
   isRemoteTransition: boolean;
 
+  // Intentions state
+  currentIntention: string;
+  pendingReflection: boolean;
+  lastCompletedIntentionId: string | null;
+  lastCompletedSessionId: string | null;
+
   // Actions
   start: () => void;
   pause: () => void;
@@ -36,6 +43,11 @@ interface TimerState {
   reset: () => void;
   skip: () => void;
   tick: () => void;
+
+  // Intentions actions
+  setCurrentIntention: (text: string) => void;
+  clearCurrentIntention: () => void;
+  setPendingReflection: (value: boolean) => void;
 
   // For synced room mode
   syncState: (phase: TimerPhase, status: TimerStatus, timeRemaining: number, pomodoroCount: number) => void;
@@ -47,6 +59,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakDuration: 15,
   longBreakInterval: 4,
   notificationSound: "none",
+  autoStartBreaks: true,
 };
 
 function getDurationForPhase(phase: TimerPhase, settings: TimerSettings): number {
@@ -85,11 +98,16 @@ export const useTimerStore = create<TimerState>()(
       pomodoroCount: 0,
       startedAt: null,
       elapsed: 0,
+      sessionRunId: uuidv4(),
       currentSessionStart: null,
       sessions: [],
       lastTransitionType: null,
       hydratedAsExpired: false,
       isRemoteTransition: false,
+      currentIntention: "",
+      pendingReflection: false,
+      lastCompletedIntentionId: null,
+      lastCompletedSessionId: null,
 
       updateSettings: (newSettings) => {
         const settings = { ...get().settings, ...newSettings };
@@ -139,6 +157,7 @@ export const useTimerStore = create<TimerState>()(
           pomodoroCount: 0,
           startedAt: null,
           elapsed: 0,
+          sessionRunId: uuidv4(),
           currentSessionStart: null,
           lastTransitionType: "reset",
           isRemoteTransition: false,
@@ -162,6 +181,7 @@ export const useTimerStore = create<TimerState>()(
 
         if (newTime <= 0) {
           const totalDuration = getDurationForPhase(state.phase, state.settings) * 60;
+          let completedSessionId: string | null = null;
           if (state.currentSessionStart) {
             const session: PomodoroSession = {
               id: uuidv4(),
@@ -175,9 +195,14 @@ export const useTimerStore = create<TimerState>()(
               completionPercentage: 100,
               date: new Date().toISOString().split("T")[0],
             };
+            completedSessionId = session.id;
             set((s) => ({ sessions: [...s.sessions, session] }));
           }
           set({ lastTransitionType: "completed", isRemoteTransition: false });
+          // When a work phase completes naturally (not skipped), mark pendingReflection
+          if (state.phase === "work") {
+            set({ pendingReflection: true, lastCompletedSessionId: completedSessionId });
+          }
           transitionPhase(state, set);
         } else {
           set({ timeRemaining: newTime });
@@ -189,6 +214,10 @@ export const useTimerStore = create<TimerState>()(
         set({ phase, status, timeRemaining, pomodoroCount, isRemoteTransition: true });
         skipBroadcast = false;
       },
+
+      setCurrentIntention: (text) => set({ currentIntention: text }),
+      clearCurrentIntention: () => set({ currentIntention: "", lastCompletedIntentionId: null }),
+      setPendingReflection: (value) => set({ pendingReflection: value }),
     }),
     {
       name: "pomo-timer",
@@ -202,6 +231,10 @@ export const useTimerStore = create<TimerState>()(
         startedAt: state.startedAt,
         elapsed: state.elapsed,
         currentSessionStart: state.currentSessionStart,
+        currentIntention: state.currentIntention,
+        pendingReflection: state.pendingReflection,
+        lastCompletedIntentionId: state.lastCompletedIntentionId,
+        lastCompletedSessionId: state.lastCompletedSessionId,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -341,37 +374,39 @@ function transitionPhase(
   set: (partial: Partial<TimerState> | ((s: TimerState) => Partial<TimerState>)) => void,
 ) {
   const { phase, pomodoroCount, settings } = state;
+  const autoStart = settings.autoStartBreaks;
+  const now = autoStart ? Date.now() : null;
 
   if (phase === "work") {
     const newCount = pomodoroCount + 1;
     if (newCount % settings.longBreakInterval === 0) {
       set({
         phase: "longBreak",
-        status: "idle",
+        status: autoStart ? "running" : "idle",
         timeRemaining: settings.longBreakDuration * 60,
         pomodoroCount: newCount,
         currentSessionStart: null,
-        startedAt: null,
+        startedAt: now,
         elapsed: 0,
       });
     } else {
       set({
         phase: "shortBreak",
-        status: "idle",
+        status: autoStart ? "running" : "idle",
         timeRemaining: settings.shortBreakDuration * 60,
         pomodoroCount: newCount,
         currentSessionStart: null,
-        startedAt: null,
+        startedAt: now,
         elapsed: 0,
       });
     }
   } else {
     set({
       phase: "work",
-      status: "idle",
+      status: autoStart ? "running" : "idle",
       timeRemaining: settings.workDuration * 60,
-      currentSessionStart: null,
-      startedAt: null,
+      currentSessionStart: autoStart ? Date.now() : null,
+      startedAt: now,
       elapsed: 0,
     });
   }

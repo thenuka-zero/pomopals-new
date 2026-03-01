@@ -10,6 +10,8 @@ import {
   skipPhase,
   toRoomResponse,
 } from "@/lib/rooms";
+import { auth } from "@/lib/auth";
+import { checkAchievements } from "@/lib/achievement-checker";
 
 export async function GET(
   _request: NextRequest,
@@ -27,6 +29,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const session = await auth();
   const { roomId } = await params;
   const body = await request.json();
   const { action, userId, userName } = body;
@@ -50,6 +53,19 @@ export async function POST(
       const result = joinRoomChecked(roomId, userId, userName || "Anonymous");
       if (result === undefined) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       if (result === "full") return NextResponse.json({ error: "This room is full (max 20 participants)" }, { status: 403 });
+      // Check achievements for room join (non-blocking)
+      if (session?.user?.id) {
+        const participantCount = result.participants.length;
+        const isHost = result.hostId === session.user.id;
+        checkAchievements({
+          event: 'room_joined',
+          userId: session.user.id,
+          roomId,
+          hostId: result.hostId,
+          participantCount,
+          isUserHost: isHost,
+        }).catch((err) => console.error('Achievement check failed:', err));
+      }
       return NextResponse.json(toRoomResponse(result));
     }
     case "leave": {

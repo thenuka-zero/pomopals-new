@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { recordSession, getDailyAnalytics, getAnalyticsByPeriod } from "@/lib/analytics";
 import { PomodoroSession, AnalyticsPeriod } from "@/lib/types";
+import { checkAchievements } from "@/lib/achievement-checker";
 
 const VALID_PERIODS: AnalyticsPeriod[] = ["day", "week", "month"];
 
@@ -70,6 +71,22 @@ export async function POST(request: NextRequest) {
   }
   pomodoroSession.completionPercentage = Math.max(0, Math.min(100, pomodoroSession.completionPercentage));
 
-  await recordSession(pomodoroSession);
+  const enrichedSession = {
+    ...pomodoroSession,
+    sessionRunId: body.sessionRunId ?? null,
+    timezone: body.timezone ?? null,
+    roomId: body.roomId ?? null,
+    roomParticipantCount: body.roomParticipantCount ?? null,
+  };
+
+  await recordSession(enrichedSession);
+
+  // Non-blocking achievement check
+  checkAchievements({
+    event: 'session_recorded',
+    userId: session.user.id,
+    session: enrichedSession,
+  }).catch((err) => console.error('Achievement check failed:', err));
+
   return NextResponse.json({ success: true, sessionId: pomodoroSession.id });
 }

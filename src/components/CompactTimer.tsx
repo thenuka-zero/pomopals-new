@@ -7,6 +7,8 @@ import { useNotifications, unlockAudioContext } from "@/hooks/useNotifications";
 import Settings from "@/components/Settings";
 import CreateRoomModal from "@/components/CreateRoomModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
+import IntentionInput from "@/components/IntentionInput";
+import IntentionReflectionModal from "@/components/IntentionReflectionModal";
 import { v4 as uuidv4 } from "uuid";
 
 export default function CompactTimer() {
@@ -15,6 +17,8 @@ export default function CompactTimer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
+  const [intentionId, setIntentionId] = useState<string | null>(null);
+  const [intentionsEnabled, setIntentionsEnabled] = useState(true);
 
   const {
     phase,
@@ -33,6 +37,14 @@ export default function CompactTimer() {
     hydratedAsExpired,
     isRemoteTransition,
   } = useTimerStore();
+
+  const sessionRunId = useTimerStore((s) => s.sessionRunId);
+
+  const currentIntention = useTimerStore((s) => s.currentIntention);
+  const pendingReflection = useTimerStore((s) => s.pendingReflection);
+  const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
+  const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
+  const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { requestPermission, notifyPhaseComplete, notifyHydratedExpired } = useNotifications();
@@ -117,10 +129,34 @@ export default function CompactTimer() {
       fetch("/api/analytics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lastSession),
+        body: JSON.stringify({
+          ...lastSession,
+          sessionRunId: sessionRunId,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
     }
-  }, [sessions, session]);
+  }, [sessions, session, sessionRunId]);
+
+  // Fetch intentionsEnabled setting
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data?.settings?.intentionsEnabled === "boolean") {
+          setIntentionsEnabled(data.settings.intentionsEnabled);
+        }
+      })
+      .catch(() => {});
+  }, [session?.user]);
+
+  // Clear intentionId when leaving work phase and not pending reflection
+  useEffect(() => {
+    if (phase !== "work" && !pendingReflection) {
+      setIntentionId(null);
+    }
+  }, [phase, pendingReflection]);
 
   // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
@@ -143,7 +179,11 @@ export default function CompactTimer() {
           };
           navigator.sendBeacon(
             "/api/analytics",
-            new Blob([JSON.stringify(partialSession)], {
+            new Blob([JSON.stringify({
+              ...partialSession,
+              sessionRunId: sessionRunId,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            })], {
               type: "application/json",
             })
           );
@@ -159,7 +199,7 @@ export default function CompactTimer() {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [status, phase, settings, timeRemaining, session]);
+  }, [status, phase, settings, timeRemaining, session, sessionRunId]);
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
@@ -205,17 +245,55 @@ export default function CompactTimer() {
   const expandedStrokeDashoffset =
     expandedCircumference - (progress / 100) * expandedCircumference;
 
+  const handleStart = useCallback(() => {
+    // Create intention if text is set and user is authenticated
+    if (currentIntention.trim() && session?.user) {
+      const newId = crypto.randomUUID();
+      setIntentionId(newId);
+      // Fire and forget — never block the timer
+      fetch("/api/intentions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: newId,
+          text: currentIntention.trim(),
+          startedAt: new Date().toISOString(),
+          date: new Date().toISOString().slice(0, 10),
+        }),
+      }).catch(() => {});
+    }
+    start();
+  }, [currentIntention, session?.user, start]);
+
+  const handleSkip = useCallback(() => {
+    if (intentionId) {
+      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      clearCurrentIntention();
+    }
+    skip();
+  }, [intentionId, clearCurrentIntention, skip]);
+
+  const handleReset = useCallback(() => {
+    if (intentionId) {
+      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      clearCurrentIntention();
+    }
+    reset();
+  }, [intentionId, clearCurrentIntention, reset]);
+
   const handlePlayPause = useCallback(() => {
     if (status === "idle") {
       requestPermission();
       unlockAudioContext();
-      start();
+      handleStart();
     } else if (status === "running") {
       pause();
     } else if (status === "paused") {
       resume();
     }
-  }, [status, start, pause, resume, requestPermission]);
+  }, [status, handleStart, pause, resume, requestPermission]);
 
   const userId =
     session?.user?.id || "guest-" + Math.random().toString(36).slice(2);
@@ -420,7 +498,7 @@ export default function CompactTimer() {
                       onClick={() => {
                         requestPermission();
                         unlockAudioContext();
-                        start();
+                        handleStart();
                       }}
                       className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all"
                     >
@@ -444,7 +522,7 @@ export default function CompactTimer() {
                         Resume
                       </button>
                       <button
-                        onClick={reset}
+                        onClick={handleReset}
                         className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all"
                       >
                         Reset
@@ -452,7 +530,7 @@ export default function CompactTimer() {
                     </>
                   )}
                   <button
-                    onClick={skip}
+                    onClick={handleSkip}
                     className="px-4 py-3 text-[#A08060] hover:text-[#E54B4B] transition-colors"
                     title="Skip to next phase"
                   >
@@ -468,6 +546,11 @@ export default function CompactTimer() {
                     </svg>
                   </button>
                 </div>
+
+                {/* Intention input */}
+                {session?.user && intentionsEnabled && (
+                  <IntentionInput />
+                )}
 
                 {/* Action buttons row */}
                 <div className="flex flex-wrap justify-center gap-2.5 mt-2">
@@ -547,6 +630,17 @@ export default function CompactTimer() {
       </div>
 
       {/* Modals */}
+      {pendingReflection && intentionId && session?.user && intentionsEnabled && (
+        <IntentionReflectionModal
+          intentionId={intentionId}
+          intentionText={currentIntention}
+          sessionId={lastCompletedSessionId}
+          onClose={() => {
+            setPendingReflection(false);
+            setIntentionId(null);
+          }}
+        />
+      )}
       <Settings
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}

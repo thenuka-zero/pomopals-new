@@ -5,6 +5,7 @@ import { DailyAnalytics, PomodoroSession } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import FriendsActivityWidget from "@/components/FriendsActivityWidget";
 import JoinRequestModal from "@/components/JoinRequestModal";
+import AchievementWidget from "@/components/AchievementWidget";
 
 interface DashboardProps {
   todayData: DailyAnalytics | null;
@@ -53,6 +54,9 @@ export default function Dashboard({ todayData, allData }: DashboardProps) {
           hostName={joinTarget.hostName}
         />
       )}
+
+      {/* Achievements */}
+      <AchievementWidget />
 
       {/* Today's Stats */}
       <section>

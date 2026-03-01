@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Timer from "./Timer";
 import RoomJoinRequestBanner from "./RoomJoinRequestBanner";
+import IntentionInput from "./IntentionInput";
+import IntentionReflectionModal from "./IntentionReflectionModal";
 
 interface RoomViewProps {
   roomId: string;
@@ -25,6 +27,15 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const [failCount, setFailCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
   const syncState = useTimerStore((s) => s.syncState);
+  const timerPhase = useTimerStore((s) => s.phase);
+  const currentIntention = useTimerStore((s) => s.currentIntention);
+  const pendingReflection = useTimerStore((s) => s.pendingReflection);
+  const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
+  const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
+  const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
+  const [intentionId, setIntentionId] = useState<string | null>(null);
+  const intentionIdRef = useRef<string | null>(null);
+  const [intentionsEnabled, setIntentionsEnabled] = useState(true);
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const { requestPermission, notifyPhaseComplete } = useNotifications();
@@ -32,6 +43,31 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const prevRoomTimeRemaining = useRef<number>(Infinity);
 
   const isAdmin = room?.hostId === userId;
+
+  // Keep intentionIdRef in sync with intentionId state for use in callbacks
+  useEffect(() => {
+    intentionIdRef.current = intentionId;
+  }, [intentionId]);
+
+  // Fetch intentionsEnabled setting
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data?.settings?.intentionsEnabled === "boolean") {
+          setIntentionsEnabled(data.settings.intentionsEnabled);
+        }
+      })
+      .catch(() => {});
+  }, [session?.user]);
+
+  // Clear intentionId when leaving work phase and not pending reflection
+  useEffect(() => {
+    if (timerPhase !== "work" && !pendingReflection) {
+      setIntentionId(null);
+    }
+  }, [timerPhase, pendingReflection]);
 
   const fetchJoinRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -75,6 +111,21 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         notifyPhaseComplete(prevRoomPhase.current, newPhase, { isRemote: false });
       }
 
+      // Detect skip: phase changed while time was still > 3s remaining
+      // Call the skip endpoint for the current intention if one is active
+      const currentIntentionIdAtPoll = intentionIdRef.current;
+      if (
+        prevRoomPhase.current === "work" &&
+        prevRoomPhase.current !== newPhase &&
+        prevRoomTimeRemaining.current > 3 &&
+        currentIntentionIdAtPoll
+      ) {
+        fetch(`/api/intentions/${currentIntentionIdAtPoll}/skip`, { method: "POST" }).catch(() => {});
+        intentionIdRef.current = null;
+        setIntentionId(null);
+        clearCurrentIntention();
+      }
+
       prevRoomPhase.current = newPhase;
       prevRoomTimeRemaining.current = newTimeRemaining;
 
@@ -87,7 +138,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     } catch {
       setFailCount((c) => c + 1);
     }
-  }, [roomId, syncState, notifyPhaseComplete, userId, fetchJoinRequests]);
+  }, [roomId, syncState, notifyPhaseComplete, userId, fetchJoinRequests, clearCurrentIntention]);
 
   // Join on mount
   useEffect(() => {
@@ -211,6 +262,50 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     fetchRoom();
   };
 
+  const handleRoomStart = () => {
+    // Create intention if text is set and user is authenticated
+    if (currentIntention.trim() && session?.user) {
+      const newId = crypto.randomUUID();
+      setIntentionId(newId);
+      intentionIdRef.current = newId;
+      fetch("/api/intentions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: newId,
+          text: currentIntention.trim(),
+          startedAt: new Date().toISOString(),
+          date: new Date().toISOString().slice(0, 10),
+        }),
+      }).catch(() => {});
+    }
+    requestPermission();
+    unlockAudioContext();
+    sendAction("start");
+  };
+
+  const handleRoomSkip = () => {
+    const currentId = intentionIdRef.current;
+    if (currentId) {
+      fetch(`/api/intentions/${currentId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      intentionIdRef.current = null;
+      clearCurrentIntention();
+    }
+    sendAction("skip");
+  };
+
+  const handleRoomReset = () => {
+    const currentId = intentionIdRef.current;
+    if (currentId) {
+      fetch(`/api/intentions/${currentId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      intentionIdRef.current = null;
+      clearCurrentIntention();
+    }
+    sendAction("reset");
+  };
+
   const handleLeaveRoom = () => {
     router.push("/");
   };
@@ -259,6 +354,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   }
 
   return (
+    <>
     <div className="flex flex-col items-center gap-8">
       {/* Join request banner for host */}
       {isAdmin && joinRequests.length > 0 && (
@@ -305,18 +401,21 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       </button>
 
       {/* Timer */}
-      <Timer
-        isRoomMode
-        isReadOnly={!isAdmin}
-        onStart={() => {
-          requestPermission();
-          unlockAudioContext();
-          sendAction("start");
-        }}
-        onPause={() => sendAction("pause")}
-        onReset={() => sendAction("reset")}
-        onSkip={() => sendAction("skip")}
-      />
+      <div className="w-full max-w-sm flex flex-col items-center">
+        <Timer
+          isRoomMode
+          isReadOnly={!isAdmin}
+          onStart={handleRoomStart}
+          onPause={() => sendAction("pause")}
+          onReset={handleRoomReset}
+          onSkip={handleRoomSkip}
+        />
+        {isAdmin && session?.user && intentionsEnabled && (
+          <div className="w-full max-w-xs mt-2">
+            <IntentionInput />
+          </div>
+        )}
+      </div>
 
       {/* Host controls label for participants */}
       {!isAdmin && (
@@ -368,5 +467,21 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         )}
       </div>
     </div>
+
+      {/* Intention reflection modal */}
+      {pendingReflection && intentionId && session?.user && intentionsEnabled && (
+        <IntentionReflectionModal
+          intentionId={intentionId}
+          intentionText={currentIntention}
+          sessionId={lastCompletedSessionId}
+          onClose={() => {
+            setPendingReflection(false);
+            setIntentionId(null);
+            intentionIdRef.current = null;
+          }}
+        />
+      )}
+    </>
   );
 }
+

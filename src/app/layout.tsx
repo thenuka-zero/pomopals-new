@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Navbar from "@/components/Navbar";
+import AchievementToastContainer from "@/components/AchievementToastContainer";
 import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default async function RootLayout({
         <Providers session={session}>
           <Navbar />
           <main>{children}</main>
+          <AchievementToastContainer />
         </Providers>
       </body>
     </html>

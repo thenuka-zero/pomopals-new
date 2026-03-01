@@ -12,6 +12,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   const { settings, updateSettings, status } = useTimerStore();
   const [local, setLocal] = useState(settings);
   const [broadcastEnabled, setBroadcastEnabled] = useState(true);
+  const [intentionsEnabled, setIntentionsEnabled] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
       .then((r) => r.json())
       .then((d) => {
         setBroadcastEnabled(d.settings?.broadcastEnabled ?? true);
+        setIntentionsEnabled(d.settings?.intentionsEnabled ?? true);
         setSettingsLoaded(true);
       })
       .catch(() => setSettingsLoaded(true));
@@ -41,6 +43,20 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
           body: JSON.stringify({ isActive: false }),
         });
       }
+    } catch {
+      // ignore — the toggle is optimistic
+    }
+  };
+
+  const handleIntentionsToggle = async () => {
+    const newVal = !intentionsEnabled;
+    setIntentionsEnabled(newVal);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentionsEnabled: newVal }),
+      });
     } catch {
       // ignore — the toggle is optimistic
     }
@@ -108,6 +124,32 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
           </div>
 
           <div className="border-t border-[#F0E6D3] pt-4">
+            <h3 className="text-sm font-bold text-[#3D2C2C] mb-3">Behaviour</h3>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <p className="text-sm text-[#5C4033] font-semibold">Auto-start next phase</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Automatically start breaks and work sessions when the timer ends.
+                </p>
+              </div>
+              <button
+                onClick={() => setLocal({ ...local, autoStartBreaks: !local.autoStartBreaks })}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  local.autoStartBreaks ? "bg-[#6EAE3E]" : "bg-gray-300"
+                }`}
+                role="switch"
+                aria-checked={local.autoStartBreaks}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                    local.autoStartBreaks ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-[#F0E6D3] pt-4">
             <h3 className="text-sm font-bold text-[#3D2C2C] mb-3">Notifications</h3>
             <div>
               <label className="block text-sm text-[#5C4033] font-semibold mb-1">
@@ -155,6 +197,37 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
                     broadcastEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          ) : (
+            <div className="h-10 bg-[#F0E6D3] rounded-xl animate-pulse" />
+          )}
+        </div>
+
+        {/* Features Section */}
+        <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
+          <h3 className="font-semibold text-[#3D2C2C] mb-2">Features</h3>
+          {settingsLoaded ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-[#3D2C2C] font-medium">Intentions</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Set focus intentions before each session
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={intentionsEnabled}
+                onClick={handleIntentionsToggle}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  intentionsEnabled ? "bg-[#E54B4B]" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                    intentionsEnabled ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
               </button>

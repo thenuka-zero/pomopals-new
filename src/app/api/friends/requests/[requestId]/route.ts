@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, friendships, friendRequests } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, count, sql as sqlExpr } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { FriendRequest } from "@/lib/types";
+import { checkAchievements } from "@/lib/achievement-checker";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,30 @@ export async function PATCH(
       .from(users)
       .where(eq(users.id, updatedRequest.recipientId))
       .limit(1);
+
+    // Count total friendships for both users and check achievements
+    const [friendCountRow] = await db
+      .select({ cnt: count() })
+      .from(friendships)
+      .where(sqlExpr`${friendships.userIdA} = ${myId} OR ${friendships.userIdB} = ${myId}`);
+    const myFriendCount = Number(friendCountRow?.cnt ?? 0);
+
+    checkAchievements({
+      event: 'friendship_confirmed',
+      userId: myId,
+      friendCount: myFriendCount,
+    }).catch((err) => console.error('Achievement check failed:', err));
+
+    // Also check for requester
+    const [requesterFriendCountRow] = await db
+      .select({ cnt: count() })
+      .from(friendships)
+      .where(sqlExpr`${friendships.userIdA} = ${friendRequest.requesterId} OR ${friendships.userIdB} = ${friendRequest.requesterId}`);
+    checkAchievements({
+      event: 'friendship_confirmed',
+      userId: friendRequest.requesterId,
+      friendCount: Number(requesterFriendCountRow?.cnt ?? 0),
+    }).catch((err) => console.error('Achievement check failed:', err));
 
     const requestResponse: FriendRequest = {
       id: updatedRequest.id,
