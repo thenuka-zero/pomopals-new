@@ -97,10 +97,9 @@ export default function Navbar() {
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
-                {process.env.NEXT_PUBLIC_ADMIN_EMAIL &&
-                  session.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
-                    <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
-                  )}
+                {(session.user as { isAdmin?: boolean })?.isAdmin && (
+                  <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
+                )}
                 <span className="relative">
                   <NavLink href="/trophies" active={pathname === "/trophies"} title="Trophies">🏆</NavLink>
                   {hasPendingAchievements && (

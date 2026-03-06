@@ -92,6 +92,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Retrieve emailVerified from cache (set during authorize)
         token.emailVerified = emailVerifiedCache.get(user.id as string) ?? false;
         emailVerifiedCache.delete(user.id as string);
+        // isAdmin is computed server-side only — email never sent to client
+        token.isAdmin = !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL;
       }
 
       // Re-check emailVerified from DB on every token refresh so it updates
@@ -111,10 +113,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-        // Use Object.assign to bypass the type intersection issue between
-        // @auth/core's Date-based emailVerified and our boolean-based one
         Object.assign(session.user, {
           emailVerified: (token.emailVerified as boolean) ?? false,
+          isAdmin: (token.isAdmin as boolean) ?? false,
         });
       }
       return session;
