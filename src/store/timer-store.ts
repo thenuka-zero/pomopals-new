@@ -5,6 +5,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { TimerSettings, TimerPhase, TimerStatus, PomodoroSession } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
+export const MIN_PROMPT_ELAPSED_SECONDS = 60;
+
 interface TimerState {
   // Settings
   settings: TimerSettings;
@@ -40,12 +42,16 @@ interface TimerState {
   roomId: string | null;
   roomParticipantCount: number | null;
 
+  // Interrupt prompt state
+  pendingInterruptPrompt: { session: PomodoroSession; action: "skip" | "reset" } | null;
+  resolveInterruptPrompt: (count: boolean) => void;
+
   // Actions
   start: () => void;
   pause: () => void;
   resume: () => void;
-  reset: () => void;
-  skip: () => void;
+  reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession }) => void;
+  skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession }) => void;
   tick: () => void;
 
   // Intentions actions
@@ -117,6 +123,7 @@ export const useTimerStore = create<TimerState>()(
       lastCompletedSessionId: null,
       roomId: null,
       roomParticipantCount: null,
+      pendingInterruptPrompt: null,
 
       updateSettings: (newSettings) => {
         const settings = { ...get().settings, ...newSettings };
@@ -157,27 +164,53 @@ export const useTimerStore = create<TimerState>()(
         });
       },
 
-      reset: () => {
-        const { settings } = get();
-        set({
-          phase: "work",
-          status: "idle",
-          timeRemaining: settings.workDuration * 60,
-          pomodoroCount: 0,
-          startedAt: null,
-          elapsed: 0,
-          sessionRunId: uuidv4(),
-          currentSessionStart: null,
-          lastTransitionType: "reset",
-          isRemoteTransition: false,
-        });
+      reset: (opts) => {
+        const state = get();
+        const { settings } = state;
+        if (opts?.deferAnalytics && opts.deferredSession) {
+          set({
+            phase: "work",
+            status: "idle",
+            timeRemaining: settings.workDuration * 60,
+            pomodoroCount: 0,
+            startedAt: null,
+            elapsed: 0,
+            sessionRunId: uuidv4(),
+            currentSessionStart: null,
+            lastTransitionType: "reset",
+            isRemoteTransition: false,
+            pendingInterruptPrompt: { session: opts.deferredSession, action: "reset" },
+          });
+        } else {
+          set({
+            phase: "work",
+            status: "idle",
+            timeRemaining: settings.workDuration * 60,
+            pomodoroCount: 0,
+            startedAt: null,
+            elapsed: 0,
+            sessionRunId: uuidv4(),
+            currentSessionStart: null,
+            lastTransitionType: "reset",
+            isRemoteTransition: false,
+          });
+        }
       },
 
-      skip: () => {
+      skip: (opts) => {
         const state = get();
-        recordSessionIfNeeded(state, set);
-        set({ lastTransitionType: "skipped", isRemoteTransition: false });
-        transitionPhase(state, set);
+        if (opts?.deferAnalytics && opts.deferredSession) {
+          set({
+            lastTransitionType: "skipped",
+            isRemoteTransition: false,
+            pendingInterruptPrompt: { session: opts.deferredSession, action: "skip" },
+          });
+          transitionPhase(state, set);
+        } else {
+          recordSessionIfNeeded(state, set);
+          set({ lastTransitionType: "skipped", isRemoteTransition: false });
+          transitionPhase(state, set);
+        }
       },
 
       tick: () => {
@@ -215,6 +248,17 @@ export const useTimerStore = create<TimerState>()(
           transitionPhase(state, set);
         } else {
           set({ timeRemaining: newTime });
+        }
+      },
+
+      resolveInterruptPrompt: (count) => {
+        const state = get();
+        if (!state.pendingInterruptPrompt) return;
+        if (count) {
+          const session = state.pendingInterruptPrompt.session;
+          set((s) => ({ sessions: [...s.sessions, session], pendingInterruptPrompt: null }));
+        } else {
+          set({ pendingInterruptPrompt: null });
         }
       },
 

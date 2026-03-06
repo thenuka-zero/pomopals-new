@@ -2,16 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useTimerStore } from "@/store/timer-store";
+import { useTimerStore, MIN_PROMPT_ELAPSED_SECONDS } from "@/store/timer-store";
 import { useNotifications, unlockAudioContext, playStartSound, playEndSound } from "@/hooks/useNotifications";
 import Settings from "@/components/Settings";
 import CreateRoomModal from "@/components/CreateRoomModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
 import IntentionReflectionModal from "@/components/IntentionReflectionModal";
+import InterruptPromptModal from "@/components/InterruptPromptModal";
 import { v4 as uuidv4 } from "uuid";
+import { useRouter } from "next/navigation";
+import { PomodoroSession } from "@/lib/types";
 
 export default function CompactTimer() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
@@ -36,6 +40,9 @@ export default function CompactTimer() {
     lastTransitionType,
     hydratedAsExpired,
     isRemoteTransition,
+    currentSessionStart,
+    pendingInterruptPrompt,
+    resolveInterruptPrompt,
   } = useTimerStore();
 
   const sessionRunId = useTimerStore((s) => s.sessionRunId);
@@ -169,11 +176,23 @@ export default function CompactTimer() {
     }
   }, [phase, pendingReflection, intentionId, setPendingReflection, clearCurrentIntention]);
 
+  // Block browser unload when an interrupt prompt is pending
+  useEffect(() => {
+    if (!pendingInterruptPrompt) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pendingInterruptPrompt]);
+
   // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // Read fresh state from the store to avoid stale closures
+      // If an interrupt prompt is pending, skip the beacon to avoid double-counting
       const s = useTimerStore.getState();
+      if (s.pendingInterruptPrompt) return;
+      // Read fresh state from the store to avoid stale closures
       if (s.status === "running" && s.phase === "work" && session?.user?.id) {
         const totalDuration = s.settings.workDuration * 60;
         const elapsed = totalDuration - s.timeRemaining;
@@ -281,8 +300,32 @@ export default function CompactTimer() {
       setIntentionId(null);
       clearCurrentIntention();
     }
+    if (
+      session?.user?.id &&
+      phase === "work" &&
+      currentSessionStart !== null &&
+      (status === "running" || status === "paused")
+    ) {
+      const elapsed = settings.workDuration * 60 - timeRemaining;
+      if (elapsed >= MIN_PROMPT_ELAPSED_SECONDS) {
+        const deferredSession: PomodoroSession = {
+          id: uuidv4(),
+          userId: "",
+          startedAt: new Date(currentSessionStart).toISOString(),
+          endedAt: new Date().toISOString(),
+          phase: "work",
+          plannedDuration: settings.workDuration * 60,
+          actualDuration: elapsed,
+          completed: false,
+          completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
+          date: new Date().toISOString().split("T")[0],
+        };
+        skip({ deferAnalytics: true, deferredSession });
+        return;
+      }
+    }
     skip();
-  }, [intentionId, clearCurrentIntention, skip]);
+  }, [intentionId, clearCurrentIntention, skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handleReset = useCallback(() => {
     if (intentionId) {
@@ -290,8 +333,32 @@ export default function CompactTimer() {
       setIntentionId(null);
       clearCurrentIntention();
     }
+    if (
+      session?.user?.id &&
+      phase === "work" &&
+      currentSessionStart !== null &&
+      (status === "running" || status === "paused")
+    ) {
+      const elapsed = settings.workDuration * 60 - timeRemaining;
+      if (elapsed >= MIN_PROMPT_ELAPSED_SECONDS) {
+        const deferredSession: PomodoroSession = {
+          id: uuidv4(),
+          userId: "",
+          startedAt: new Date(currentSessionStart).toISOString(),
+          endedAt: new Date().toISOString(),
+          phase: "work",
+          plannedDuration: settings.workDuration * 60,
+          actualDuration: elapsed,
+          completed: false,
+          completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
+          date: new Date().toISOString().split("T")[0],
+        };
+        reset({ deferAnalytics: true, deferredSession });
+        return;
+      }
+    }
     reset();
-  }, [intentionId, clearCurrentIntention, reset]);
+  }, [intentionId, clearCurrentIntention, reset, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handlePlayPause = useCallback(() => {
     if (status === "idle") {
@@ -605,6 +672,13 @@ export default function CompactTimer() {
       </div>
 
       {/* Modals */}
+      {pendingInterruptPrompt && session?.user && (
+        <InterruptPromptModal
+          elapsedSeconds={pendingInterruptPrompt.session.actualDuration}
+          onCount={() => resolveInterruptPrompt(true)}
+          onDiscard={() => resolveInterruptPrompt(false)}
+        />
+      )}
       {pendingReflection && intentionId && session?.user && intentionsEnabled && (
         <IntentionReflectionModal
           intentionId={intentionId}

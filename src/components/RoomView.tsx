@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { RoomResponse, TimerPhase, RoomJoinRequest } from "@/lib/types";
-import { useTimerStore } from "@/store/timer-store";
+import { RoomResponse, TimerPhase, RoomJoinRequest, PomodoroSession } from "@/lib/types";
+import { useTimerStore, MIN_PROMPT_ELAPSED_SECONDS } from "@/store/timer-store";
 import { useNotifications, unlockAudioContext } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { v4 as uuidv4 } from "uuid";
 import Timer from "./Timer";
 import RoomJoinRequestBanner from "./RoomJoinRequestBanner";
 import IntentionInput from "./IntentionInput";
 import IntentionReflectionModal from "./IntentionReflectionModal";
+import InterruptPromptModal from "./InterruptPromptModal";
 
 interface RoomViewProps {
   roomId: string;
@@ -34,6 +36,8 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
   const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
   const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
+  const pendingInterruptPrompt = useTimerStore((s) => s.pendingInterruptPrompt);
+  const resolveInterruptPrompt = useTimerStore((s) => s.resolveInterruptPrompt);
   const [intentionId, setIntentionId] = useState<string | null>(null);
   const intentionIdRef = useRef<string | null>(null);
   const [intentionsEnabled, setIntentionsEnabled] = useState(true);
@@ -304,6 +308,33 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       intentionIdRef.current = null;
       clearCurrentIntention();
     }
+    // Check if we should prompt the user to count this interrupted session
+    const s = useTimerStore.getState();
+    if (
+      session?.user?.id &&
+      s.phase === "work" &&
+      s.currentSessionStart !== null &&
+      (s.status === "running" || s.status === "paused")
+    ) {
+      const elapsed = s.settings.workDuration * 60 - s.timeRemaining;
+      if (elapsed >= MIN_PROMPT_ELAPSED_SECONDS) {
+        const deferredSession: PomodoroSession = {
+          id: uuidv4(),
+          userId: "",
+          startedAt: new Date(s.currentSessionStart).toISOString(),
+          endedAt: new Date().toISOString(),
+          phase: "work",
+          plannedDuration: s.settings.workDuration * 60,
+          actualDuration: elapsed,
+          completed: false,
+          completionPercentage: Math.round((elapsed / (s.settings.workDuration * 60)) * 100),
+          date: new Date().toISOString().split("T")[0],
+        };
+        sendAction("skip");
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "skip" } });
+        return;
+      }
+    }
     sendAction("skip");
   };
 
@@ -314,6 +345,33 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       setIntentionId(null);
       intentionIdRef.current = null;
       clearCurrentIntention();
+    }
+    // Check if we should prompt the user to count this interrupted session
+    const s = useTimerStore.getState();
+    if (
+      session?.user?.id &&
+      s.phase === "work" &&
+      s.currentSessionStart !== null &&
+      (s.status === "running" || s.status === "paused")
+    ) {
+      const elapsed = s.settings.workDuration * 60 - s.timeRemaining;
+      if (elapsed >= MIN_PROMPT_ELAPSED_SECONDS) {
+        const deferredSession: PomodoroSession = {
+          id: uuidv4(),
+          userId: "",
+          startedAt: new Date(s.currentSessionStart).toISOString(),
+          endedAt: new Date().toISOString(),
+          phase: "work",
+          plannedDuration: s.settings.workDuration * 60,
+          actualDuration: elapsed,
+          completed: false,
+          completionPercentage: Math.round((elapsed / (s.settings.workDuration * 60)) * 100),
+          date: new Date().toISOString().split("T")[0],
+        };
+        sendAction("reset");
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "reset" } });
+        return;
+      }
     }
     sendAction("reset");
   };
@@ -479,6 +537,15 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         )}
       </div>
     </div>
+
+      {/* Interrupt prompt modal */}
+      {pendingInterruptPrompt && session?.user && (
+        <InterruptPromptModal
+          elapsedSeconds={pendingInterruptPrompt.session.actualDuration}
+          onCount={() => resolveInterruptPrompt(true)}
+          onDiscard={() => resolveInterruptPrompt(false)}
+        />
+      )}
 
       {/* Intention reflection modal */}
       {pendingReflection && intentionId && session?.user && intentionsEnabled && (
