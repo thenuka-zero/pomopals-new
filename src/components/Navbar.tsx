@@ -68,7 +68,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-40 border-b border-[#F0E6D3]" style={{ backgroundColor: "#FDF6EC" }}>
+      <nav className="sticky top-0 z-40 border-b border-[#F0E6D3] bg-cream">
         <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             {/* Mini tomato icon */}
@@ -97,6 +97,10 @@ export default function Navbar() {
               <>
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
+                {process.env.NEXT_PUBLIC_ADMIN_EMAIL &&
+                  session.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+                    <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
+                  )}
                 <span className="relative">
                   <NavLink href="/trophies" active={pathname === "/trophies"} title="Trophies">🏆</NavLink>
                   {hasPendingAchievements && (
@@ -152,7 +156,7 @@ export default function Navbar() {
 
       {/* Email verification banner */}
       {showVerificationBanner && (
-        <div className="border-b border-[#F0E6D3] px-4 py-2.5" style={{ backgroundColor: "#FFF8F0" }}>
+        <div className="border-b border-[#F0E6D3] px-4 py-2.5 bg-cream-warm">
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 text-sm">
             <div className="flex items-center gap-2 text-[#5C4033]">
               <span>&#128231;</span>
