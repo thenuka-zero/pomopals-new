@@ -12,13 +12,20 @@ export async function sendVerificationEmail(
   name: string,
   verificationToken: string
 ): Promise<void> {
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
-  const verifyUrl = `${appUrl}/api/auth/verify?token=${verificationToken}`;
-
   if (!resend) {
-    console.log(`\n[PomoPals Email] Verification link for ${to}:\n  ${verifyUrl}\n`);
+    const devUrl = process.env.APP_URL || "http://localhost:3000";
+    console.log(`\n[PomoPals Email] Verification link for ${to}:\n  ${devUrl}/api/auth/verify?token=${verificationToken}\n`);
     return;
   }
+
+  const appUrl = process.env.APP_URL;
+  if (!appUrl || !appUrl.startsWith("https://")) {
+    throw new Error(
+      `APP_URL must be set to an https:// URL to send verification emails (current value: ${appUrl ?? "(not set)"})`
+    );
+  }
+
+  const verifyUrl = `${appUrl}/api/auth/verify?token=${verificationToken}`;
 
   await resend.emails.send({
     from: FROM_ADDRESS,

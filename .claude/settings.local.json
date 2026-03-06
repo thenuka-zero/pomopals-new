@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build 2>&1 | tail -50)",
+      "Bash(which vercel 2>/dev/null && vercel --version)",
+      "Bash(openssl rand -base64 32)",
+      "Bash(echo \"e4TgMHCJZKviofCyCmSaim5IreVZbR29tpBnHm2AiMk=\" | vercel env add AUTH_SECRET production preview development 2>&1)",
+      "Bash(echo \"e4TgMHCJZKviofCyCmSaim5IreVZbR29tpBnHm2AiMk=\" | vercel env add AUTH_SECRET production 2>&1)",
+      "Bash(vercel env ls 2>&1)",
+      "Bash(echo \"e4TgMHCJZKviofCyCmSaim5IreVZbR29tpBnHm2AiMk=\" | vercel env add AUTH_SECRET development 2>&1)",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(vercel ls 2>&1 | head -20)",
+      "Bash(vercel --prod 2>&1)",
+      "Bash(vercel inspect pomopals-8hn3v8cbo-thenukas-projects-078f1efd.vercel.app --logs 2>&1 | tail -40)",
+      "Bash(vercel domains ls 2>&1)",
+      "mcp__claude_ai_Vercel__get_access_to_vercel_url",
+      "mcp__claude_ai_Vercel__web_fetch_vercel_url",
+      "Bash(vercel project ls 2>&1)",
+      "Bash(vercel inspect pomopals-8hn3v8cbo-thenukas-projects-078f1efd.vercel.app 2>&1)",
+      "mcp__claude_ai_Vercel__get_project",
+      "Bash(vercel project settings --help 2>&1 | head -20)",
+      "mcp__claude_ai_Vercel__search_vercel_documentation",
+      "Bash(vercel link --yes 2>&1 && cat .vercel/project.json)",
+      "Bash(echo \"y\" | vercel --prod --force 2>&1)",
+      "Bash(vercel whoami 2>&1)",
+      "Bash(node -e \"const path = require\\('path'\\); const os = require\\('os'\\); const p = path.join\\(os.homedir\\(\\), '.config', 'vercel'\\); console.log\\(p\\); try { const fs = require\\('fs'\\); console.log\\(fs.readdirSync\\(p\\)\\); } catch\\(e\\) { console.log\\('not found'\\); }\" 2>&1)",
+      "Bash(node -e \"\nconst xdg = process.env.XDG_CONFIG_HOME || require\\('path'\\).join\\(require\\('os'\\).homedir\\(\\), '.local', 'share'\\);\nconst p = require\\('path'\\).join\\(xdg, 'com.vercel.cli'\\);\nconsole.log\\(p\\);\ntry { console.log\\(require\\('fs'\\).readdirSync\\(p\\)\\); } catch\\(e\\) { console.log\\('not there'\\); }\n\" 2>&1)",
+      "Bash(mdfind -name \"auth.json\" 2>/dev/null | grep -i vercel | head -5)",
+      "Bash(vercel --prod --force 2>&1)",
+      "Bash(vercel --prod --force --yes 2>&1)",
+      "Bash(source ~/.zshrc && echo \"Done. CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\")"
+    ]
+  }
+}

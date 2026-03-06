@@ -22,6 +22,8 @@
   --color-brown-light: #5C4033;
   --color-brown-muted: #8B7355;
   --color-tan: #A08060;
+  --color-cream-warm: #FFF8F0;
+  --color-cream-warm-2: #FFFBF5;
   --animate-bounce-slow: bounce-slow 3s ease-in-out infinite;
 }
 
@@ -58,4 +60,13 @@ html, body {
 ::selection {
   background: #F5A0A0;
   color: #3D2C2C;
+}
+
+/* Dynamic animation for achievement toast progress bar */
+@keyframes shrink-bar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.animate-shrink-bar {
+  animation: shrink-bar 6s linear forwards;
 }

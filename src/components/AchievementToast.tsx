@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import Link from "next/link";
 import { PendingAchievement, AchievementTier } from "@/lib/types";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 interface AchievementToastProps {
   achievement: PendingAchievement;
@@ -17,13 +18,18 @@ function TierBadge({ tier }: { tier: AchievementTier }) {
     platinum: { label: "Platinum", bg: "#E3F2FD", color: "#1565C0", border: "#90CAF9" },
   }[tier];
 
+  const id = `tb-${useId().replace(/:/g, "")}`;
+
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
-      style={{ backgroundColor: config.bg, color: config.color, border: `1px solid ${config.border}` }}
-    >
-      {tier === "bronze" ? "🥉" : tier === "silver" ? "🥈" : tier === "gold" ? "🥇" : "💎"} {config.label.toUpperCase()}
-    </span>
+    <>
+      <DynamicStyle css={`#${id} { background-color: ${config.bg}; color: ${config.color}; border: 1px solid ${config.border}; }`} />
+      <span
+        id={id}
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+      >
+        {tier === "bronze" ? "🥉" : tier === "silver" ? "🥈" : tier === "gold" ? "🥇" : "💎"} {config.label.toUpperCase()}
+      </span>
+    </>
   );
 }
 
@@ -49,16 +55,14 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
   return (
     <div
       className={`
-        w-80 bg-white rounded-2xl shadow-xl border-2 overflow-hidden
+        w-80 bg-white rounded-2xl shadow-xl border-2 border-sand overflow-hidden
         transition-all duration-[400ms] ease-out
         ${visible && !leaving ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}
       `}
-      style={{ borderColor: "#F0E6D3" }}
     >
       {/* Header strip */}
       <div
-        className="px-4 py-2 flex items-center justify-between"
-        style={{ backgroundColor: "#FDF6EC" }}
+        className="px-4 py-2 flex items-center justify-between bg-cream"
       >
         <span className="text-xs font-bold text-[#8B7355] tracking-wide uppercase flex items-center gap-1">
           🎉 Achievement Unlocked
@@ -104,17 +108,9 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
       {/* Progress bar (auto-dismiss indicator) */}
       <div className="h-0.5 bg-[#F0E6D3]">
         <div
-          className="h-full bg-[#E54B4B] origin-left"
-          style={{ animation: "shrink-bar 6s linear forwards" }}
+          className="h-full bg-[#E54B4B] origin-left animate-shrink-bar"
         />
       </div>
-
-      <style jsx>{`
-        @keyframes shrink-bar {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
     </div>
   );
 }

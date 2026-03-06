@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
 
   const limit = isNaN(limitParam) ? 10 : Math.min(limitParam, 20);
   const qLower = q.toLowerCase();
+  // Escape LIKE special characters so user input can't expand the match pattern
+  const qEscaped = q.replace(/[\\%_]/g, "\\$&");
 
   const results = await db
     .select({ id: users.id, name: users.name, email: users.email })
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
     .where(
       and(
         or(
-          like(users.name, `%${q}%`),
+          like(users.name, `%${qEscaped}%`),
           eq(users.email, qLower)
         )
       )

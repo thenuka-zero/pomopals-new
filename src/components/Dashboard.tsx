@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { DailyAnalytics, PomodoroSession } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import FriendsActivityWidget from "@/components/FriendsActivityWidget";
 import JoinRequestModal from "@/components/JoinRequestModal";
 import AchievementWidget from "@/components/AchievementWidget";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 interface DashboardProps {
   todayData: DailyAnalytics | null;
@@ -111,6 +112,7 @@ function SessionRow({ session }: { session: PomodoroSession }) {
   const actualMin = Math.round(session.actualDuration / 60);
   const plannedMin = Math.round(session.plannedDuration / 60);
   const timeStr = format(parseISO(session.startedAt), "h:mm a");
+  const barId = `db-${useId().replace(/:/g, "")}`;
 
   return (
     <div className="flex items-center justify-between py-3 px-4">
@@ -129,10 +131,8 @@ function SessionRow({ session }: { session: PomodoroSession }) {
       </div>
       <div className="flex items-center gap-2">
         <div className="w-16 h-2.5 bg-[#F0E6D3] rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full ${session.completed ? "bg-[#6EAE3E]" : "bg-[#E54B4B]"}`}
-            style={{ width: `${session.completionPercentage}%` }}
-          />
+          <DynamicStyle css={`#${barId} { width: ${session.completionPercentage}%; }`} />
+          <div id={barId} className={`h-full rounded-full ${session.completed ? "bg-[#6EAE3E]" : "bg-[#E54B4B]"}`} />
         </div>
         <span className="text-xs text-[#8B7355] w-10 text-right font-semibold">
           {session.completionPercentage}%

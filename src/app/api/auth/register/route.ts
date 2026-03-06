@@ -6,8 +6,37 @@ import { users, emailVerificationTokens } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
 
+// ── Simple IP-based rate limiter (10 attempts per 15-minute window) ──────────
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const ipAttempts = new Map<string, { count: number; windowStart: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipAttempts.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    ipAttempts.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limiting ────────────────────────────────────────────────────
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      request.headers.get("x-real-ip") ??
+      "unknown";
+
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const name = (body.name as string)?.trim();
     const email = (body.email as string)?.trim()?.toLowerCase();
@@ -36,13 +65,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Check email uniqueness ──────────────────────────────────────────
+    // Always return the same success response whether or not the email exists,
+    // to prevent account enumeration via 409 responses.
     const existingUser = await db.query.users.findFirst({
       where: eq(users.email, email),
     });
     if (existingUser) {
       return NextResponse.json(
-        { error: "An account with this email already exists." },
-        { status: 409 }
+        { success: true, message: "Account created! Check your email to verify your account." },
+        { status: 201 }
       );
     }
 

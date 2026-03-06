@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import type { AchievementWithStatus } from "@/lib/types";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 export default function AchievementWidget() {
   const { data: session } = useSession();
@@ -63,10 +64,8 @@ export default function AchievementWidget() {
           </span>
         </div>
         <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden mb-3">
-          <div
-            className="h-full bg-[#E54B4B] rounded-full transition-all"
-            style={{ width: `${total > 0 ? (unlocked / total) * 100 : 0}%` }}
-          />
+          <DynamicStyle css={`#aw-progress { width: ${total > 0 ? (unlocked / total) * 100 : 0}%; }`} />
+          <div id="aw-progress" className="h-full bg-[#E54B4B] rounded-full transition-all" />
         </div>
         {recent.length > 0 ? (
           <div className="flex gap-2 flex-wrap">

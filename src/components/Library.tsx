@@ -30,14 +30,12 @@ export default function Library() {
       <div className="text-center mb-8">
         <div className="text-5xl mb-3 leading-none select-none">📚</div>
         <h1
-          className="text-4xl font-extrabold tracking-tight"
-          style={{ color: "#3D2C2C" }}
+          className="text-4xl font-extrabold tracking-tight text-brown"
         >
           Pom&apos;s Library
         </h1>
         <p
-          className="mt-3 text-lg font-semibold"
-          style={{ color: "#8B7355" }}
+          className="mt-3 text-lg font-semibold text-brown-muted"
         >
           &ldquo;A cozy corner of the internet &mdash; curl up and read something
           good.&rdquo;
@@ -68,10 +66,10 @@ export default function Library() {
       {filteredBooks.length === 0 ? (
         <div className="mt-16 flex flex-col items-center gap-3 text-center">
           <span className="text-5xl">🔍</span>
-          <p className="text-lg font-bold" style={{ color: "#5C4033" }}>
+          <p className="text-lg font-bold text-brown-light">
             No books found in this category yet.
           </p>
-          <p className="text-sm" style={{ color: "#8B7355" }}>
+          <p className="text-sm text-brown-muted">
             Pom is busy writing more — check back soon!
           </p>
           <button

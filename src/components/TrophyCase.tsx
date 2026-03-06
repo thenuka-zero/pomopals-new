@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { useSession } from "next-auth/react";
 import { AchievementWithStatus, AchievementTier, GetAchievementsResponse } from "@/lib/types";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 // ── Tier helpers ─────────────────────────────────────────────────────────────
 
@@ -17,13 +18,14 @@ function tierColor(tier: AchievementTier) {
 
 function TierBadge({ tier }: { tier: AchievementTier }) {
   const c = tierColor(tier);
+  const id = `tb-${useId().replace(/:/g, "")}`;
   return (
-    <span
-      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase"
-      style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}` }}
-    >
-      {c.badge} {tier}
-    </span>
+    <>
+      <DynamicStyle css={`#${id} { background-color: ${c.bg}; color: ${c.text}; border: 1px solid ${c.border}; }`} />
+      <span id={id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase">
+        {c.badge} {tier}
+      </span>
+    </>
   );
 }
 
@@ -31,17 +33,16 @@ function TierBadge({ tier }: { tier: AchievementTier }) {
 
 function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; target: number; color?: string }) {
   const pct = Math.min(100, Math.round((current / target) * 100));
+  const id = `pb-${useId().replace(/:/g, "")}`;
   return (
     <div>
-      <div className="flex items-center justify-between text-[10px] text-[#8B7355] mb-1">
+      <div className="flex items-center justify-between text-[10px] text-brown-muted mb-1">
         <span>{current.toLocaleString()} / {target.toLocaleString()}</span>
         <span>{pct}%</span>
       </div>
-      <div className="w-full h-1.5 bg-[#F0E6D3] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
+      <div className="w-full h-1.5 bg-sand rounded-full overflow-hidden">
+        <DynamicStyle css={`#${id} { width: ${pct}%; background-color: ${color}; }`} />
+        <div id={id} className="h-full rounded-full transition-all duration-500" />
       </div>
     </div>
   );
@@ -53,68 +54,70 @@ function AchievementCard({ achievement }: { achievement: AchievementWithStatus }
   const isLocked = !achievement.unlocked;
   const isSecretLocked = achievement.isSecret && isLocked;
   const tierC = tierColor(achievement.tier);
+  const id = `ac-${useId().replace(/:/g, "")}`;
+
+  const borderColor = isLocked ? "#F0E6D3" : tierC.border;
+  const filterVal = isLocked && !isSecretLocked ? "grayscale(0.6)" : "";
+  const emojiFilter = isSecretLocked ? "grayscale(1) opacity(0.3)" : "";
 
   return (
-    <div
-      id={`achievement-${achievement.id}`}
-      className={`
-        relative rounded-2xl border-2 p-4 flex flex-col gap-2 transition-all duration-300
-        ${isLocked ? "opacity-70" : ""}
-        ${isSecretLocked ? "bg-[#2A1F1F]" : "bg-white"}
-      `}
-      style={{
-        borderColor: isLocked ? "#F0E6D3" : tierC.border,
-        filter: isLocked && !isSecretLocked ? "grayscale(0.6)" : undefined,
-      }}
-    >
-      {/* Tier badge */}
-      <div className="flex items-center justify-between">
-        <TierBadge tier={achievement.tier} />
-        {achievement.retroactivelyAwarded && (
-          <span className="text-[9px] text-[#A08060] font-medium">★ Retroactive</span>
-        )}
-      </div>
+    <>
+      <DynamicStyle css={`
+        #${id} { border-color: ${borderColor}; ${filterVal ? `filter: ${filterVal};` : ""} }
+        #${id} .emoji-span { ${emojiFilter ? `filter: ${emojiFilter};` : ""} }
+      `} />
+      <div
+        id={id}
+        className={`relative rounded-2xl border-2 p-4 flex flex-col gap-2 transition-all duration-300 ${isLocked ? "opacity-70" : ""} ${isSecretLocked ? "bg-[#2A1F1F]" : "bg-white"}`}
+      >
+        {/* Tier badge */}
+        <div className="flex items-center justify-between">
+          <TierBadge tier={achievement.tier} />
+          {achievement.retroactivelyAwarded && (
+            <span className="text-[9px] text-[#A08060] font-medium">★ Retroactive</span>
+          )}
+        </div>
 
-      {/* Emoji + name */}
-      <div className="flex flex-col items-center text-center gap-1 py-1">
-        <span
-          className="text-3xl"
-          role="img"
-          aria-label={achievement.name}
-          style={isSecretLocked ? { filter: "grayscale(1) opacity(0.3)" } : undefined}
-        >
-          {achievement.emoji}
-        </span>
-        <span
-          className={`text-sm font-bold leading-tight ${isSecretLocked ? "text-[#6B5555]" : "text-[#3D2C2C]"}`}
-        >
-          {achievement.name}
-        </span>
-      </div>
-
-      {/* Description / hint */}
-      <p className={`text-[11px] text-center leading-snug ${isSecretLocked ? "text-[#6B5555]" : "text-[#8B7355]"}`}>
-        {isSecretLocked ? achievement.hint : isLocked ? achievement.hint : (achievement.description ?? achievement.hint)}
-      </p>
-
-      {/* Progress bar (count achievements) */}
-      {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && (
-        <ProgressBar
-          current={achievement.currentProgress ?? 0}
-          target={achievement.progressTarget}
-          color={achievement.unlocked ? "#6EAE3E" : "#E54B4B"}
-        />
-      )}
-
-      {/* Unlock date */}
-      {achievement.unlocked && achievement.unlockedAt && (
-        <div className="flex items-center justify-center gap-1">
-          <span className="text-[10px] text-[#6EAE3E] font-semibold">
-            ✓ Unlocked {new Date(achievement.unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        {/* Emoji + name */}
+        <div className="flex flex-col items-center text-center gap-1 py-1">
+          <span
+            className="text-3xl emoji-span"
+            role="img"
+            aria-label={achievement.name}
+          >
+            {achievement.emoji}
+          </span>
+          <span
+            className={`text-sm font-bold leading-tight ${isSecretLocked ? "text-[#6B5555]" : "text-[#3D2C2C]"}`}
+          >
+            {achievement.name}
           </span>
         </div>
-      )}
-    </div>
+
+        {/* Description / hint */}
+        <p className={`text-[11px] text-center leading-snug ${isSecretLocked ? "text-[#6B5555]" : "text-[#8B7355]"}`}>
+          {isSecretLocked ? achievement.hint : isLocked ? achievement.hint : (achievement.description ?? achievement.hint)}
+        </p>
+
+        {/* Progress bar (count achievements) */}
+        {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && (
+          <ProgressBar
+            current={achievement.currentProgress ?? 0}
+            target={achievement.progressTarget}
+            color={achievement.unlocked ? "#6EAE3E" : "#E54B4B"}
+          />
+        )}
+
+        {/* Unlock date */}
+        {achievement.unlocked && achievement.unlockedAt && (
+          <div className="flex items-center justify-center gap-1">
+            <span className="text-[10px] text-[#6EAE3E] font-semibold">
+              ✓ Unlocked {new Date(achievement.unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -123,6 +126,7 @@ function AchievementCard({ achievement }: { achievement: AchievementWithStatus }
 function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"] }) {
   const bronzeStats = summary.byTier.bronze;
   const pct = bronzeStats.total > 0 ? Math.round((bronzeStats.unlocked / bronzeStats.total) * 100) : 0;
+  const id = `sh-${useId().replace(/:/g, "")}`;
   return (
     <div className="bg-white rounded-2xl border-2 border-[#F0E6D3] p-5 mb-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
@@ -131,10 +135,8 @@ function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"
         </span>
       </div>
       <div className="w-full h-2 bg-[#F0E6D3] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full bg-[#CD7F32] transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
+        <DynamicStyle css={`#${id} { width: ${pct}%; }`} />
+        <div id={id} className="h-full rounded-full bg-[#CD7F32] transition-all duration-700" />
       </div>
     </div>
   );
@@ -144,20 +146,17 @@ function SummaryHeader({ summary }: { summary: GetAchievementsResponse["summary"
 
 function ComingSoonSection({ tier }: { tier: AchievementTier }) {
   const c = tierColor(tier);
+  const id = `cs-${useId().replace(/:/g, "")}`;
   const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
   return (
-    <div
-      className="rounded-2xl border-2 p-6 text-center"
-      style={{ borderColor: c.border, backgroundColor: c.bg }}
-    >
-      <span className="text-3xl block mb-2">{c.badge}</span>
-      <p className="text-sm font-bold mb-1" style={{ color: c.text }}>
-        {tierLabel} Achievements
-      </p>
-      <p className="text-xs text-[#8B7355]">
-        Coming soon — keep collecting bronze to prepare!
-      </p>
-    </div>
+    <>
+      <DynamicStyle css={`#${id} { border-color: ${c.border}; background-color: ${c.bg}; } #${id} .tier-label { color: ${c.text}; }`} />
+      <div id={id} className="rounded-2xl border-2 p-6 text-center">
+        <span className="text-3xl block mb-2">{c.badge}</span>
+        <p className="text-sm font-bold mb-1 tier-label">{tierLabel} Achievements</p>
+        <p className="text-xs text-brown-muted">Coming soon — keep collecting bronze to prepare!</p>
+      </div>
+    </>
   );
 }
 
@@ -281,8 +280,7 @@ export default function TrophyCase() {
       {/* Retroactive banner */}
       {showRetroactiveBanner && (
         <div
-          className="rounded-2xl border-2 border-[#F0E6D3] px-5 py-4 mb-5 flex items-start justify-between gap-3"
-          style={{ backgroundColor: "#FFFBF5" }}
+          className="rounded-2xl border-2 border-[#F0E6D3] px-5 py-4 mb-5 flex items-start justify-between gap-3 bg-cream-warm-2"
         >
           <div>
             <p className="font-bold text-[#3D2C2C] text-sm mb-1">✨ We looked back at your history</p>

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TrophiesPage() {
   return (
-    <main className="min-h-screen" style={{ backgroundColor: "#FDF6EC" }}>
+    <main className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#3D2C2C] flex items-center gap-3">

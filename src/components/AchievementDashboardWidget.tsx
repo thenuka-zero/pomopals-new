@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { GetAchievementsResponse, AchievementWithStatus } from "@/lib/types";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 export default function AchievementDashboardWidget() {
   const { data: session } = useSession();
@@ -40,8 +41,7 @@ export default function AchievementDashboardWidget() {
 
   return (
     <div
-      className="rounded-2xl border-2 border-[#F0E6D3] p-4"
-      style={{ backgroundColor: "#FDF6EC" }}
+      className="rounded-2xl border-2 border-[#F0E6D3] p-4 bg-cream"
     >
       <div className="flex items-center justify-between mb-3">
         <span className="font-bold text-[#3D2C2C] text-sm flex items-center gap-1.5">
@@ -64,6 +64,7 @@ export default function AchievementDashboardWidget() {
           <div className="flex flex-col gap-2">
             {closest.map((a) => {
               const pct = Math.min(100, Math.round(((a.currentProgress ?? 0) / (a.progressTarget ?? 1)) * 100));
+              const barId = `bar-${a.id}`;
               return (
                 <div key={a.id}>
                   <div className="flex items-center justify-between mb-0.5">
@@ -75,10 +76,8 @@ export default function AchievementDashboardWidget() {
                     </span>
                   </div>
                   <div className="w-full h-1 bg-[#F0E6D3] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#E54B4B]"
-                      style={{ width: `${pct}%` }}
-                    />
+                    <DynamicStyle css={`#${barId} { width: ${pct}%; }`} />
+                    <div id={barId} className="h-full rounded-full bg-[#E54B4B]" />
                   </div>
                 </div>
               );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { PeriodAnalytics, AnalyticsPeriod } from "@/lib/types";
 import {
   AreaChart,
@@ -11,6 +12,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 interface AnalyticsChartProps {
   data: PeriodAnalytics[];
@@ -211,13 +213,12 @@ function TooltipRow({
   label: string;
   value: string | number;
 }) {
+  const dotId = `dot-${useId().replace(/:/g, "")}`;
   return (
     <div className="flex items-center justify-between gap-4 text-xs">
       <div className="flex items-center gap-1.5">
-        <div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: color }}
-        />
+        <DynamicStyle css={`#${dotId} { background-color: ${color}; }`} />
+        <div id={dotId} className="w-2 h-2 rounded-full" />
         <span className="text-[#8B7355]">{label}</span>
       </div>
       <span className="font-bold text-[#3D2C2C]">{value}</span>

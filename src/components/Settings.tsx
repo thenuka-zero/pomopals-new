@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { useTimerStore } from "@/store/timer-store";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -173,22 +174,27 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
 }
 
 function ToggleRow({ label, checked, onChange, color = "#6EAE3E" }: { label: string; checked: boolean; onChange: () => void; color?: string }) {
+  const id = `tr-${useId().replace(/:/g, "")}`;
+  const bg = checked ? color : "#D1D5DB";
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-[#3D2C2C] font-medium">{label}</span>
-      <button
-        onClick={onChange}
-        className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors"
-        style={{ backgroundColor: checked ? color : "#D1D5DB" }}
-        role="switch"
-        aria-checked={checked}
-      >
-        <span
-          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
-            checked ? "translate-x-[18px]" : "translate-x-[2px]"
-          }`}
-        />
-      </button>
+      <>
+        <DynamicStyle css={`#${id} { background-color: ${bg}; }`} />
+        <button
+          id={id}
+          onClick={onChange}
+          className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors"
+          role="switch"
+          aria-checked={checked}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
+              checked ? "translate-x-[18px]" : "translate-x-[2px]"
+            }`}
+          />
+        </button>
+      </>
     </div>
   );
 }

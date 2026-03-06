@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useId } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { PeriodAnalytics, AnalyticsPeriod, PomodoroSession } from "@/lib/types";
@@ -8,6 +8,7 @@ import AnalyticsChart from "@/components/AnalyticsChart";
 import AchievementDashboardWidget from "@/components/AchievementDashboardWidget";
 import IntentionsDashboardWidget from "@/components/IntentionsDashboardWidget";
 import { format, parseISO } from "date-fns";
+import { DynamicStyle } from "@/components/DynamicStyle";
 
 const PERIOD_OPTIONS: { label: string; value: AnalyticsPeriod; count: number }[] = [
   { label: "Daily", value: "day", count: 14 },
@@ -264,12 +265,14 @@ function StatCard({
   subtitle?: string;
   color: string;
 }) {
+  const iconBgId = `ic-${useId().replace(/:/g, "")}`;
   return (
     <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-2">
+        <DynamicStyle css={`#${iconBgId} { background-color: ${color}10; }`} />
         <div
+          id={iconBgId}
           className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: `${color}10` }}
         >
           {icon}
         </div>
@@ -302,13 +305,22 @@ function SessionRow({ session }: { session: PomodoroSession }) {
   const isCompleted = session.completed;
   const pct = session.completionPercentage;
 
+  const dotId = `dot-${useId().replace(/:/g, "")}`;
+  const barId = `bar-${useId().replace(/:/g, "")}`;
+  const badgeId = `badge-${useId().replace(/:/g, "")}`;
+
   return (
     <div className="flex items-center justify-between py-3 px-4 bg-[#FDF6EC] border border-[#F0E6D3] rounded-xl hover:border-[#E0D0B8] transition-colors">
+      <DynamicStyle css={`
+        #${dotId} { background-color: ${phaseColor}; }
+        #${barId} { width: ${pct}%; background-color: ${pct >= 50 ? "#E5A03E" : "#E54B4B"}; }
+        #${badgeId} { background-color: ${phaseColor}15; color: ${phaseColor}; }
+      `} />
       <div className="flex items-center gap-3 min-w-0">
         {/* Phase badge */}
         <div
+          id={dotId}
           className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: phaseColor }}
         />
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -316,11 +328,8 @@ function SessionRow({ session }: { session: PomodoroSession }) {
               {durationMin}m / {plannedMin}m
             </span>
             <span
+              id={badgeId}
               className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-              style={{
-                backgroundColor: `${phaseColor}15`,
-                color: phaseColor,
-              }}
             >
               {phaseLabel}
             </span>
@@ -353,11 +362,8 @@ function SessionRow({ session }: { session: PomodoroSession }) {
           <div className="flex items-center gap-2">
             <div className="w-16 h-2.5 bg-[#F0E6D3] rounded-full overflow-hidden">
               <div
+                id={barId}
                 className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${pct}%`,
-                  backgroundColor: pct >= 50 ? "#E5A03E" : "#E54B4B",
-                }}
               />
             </div>
             <span className="text-xs text-[#8B7355] w-10 text-right font-semibold">

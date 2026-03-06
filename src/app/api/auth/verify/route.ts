@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { users, emailVerificationTokens } from "@/lib/db/schema";
 
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const appUrl = process.env.APP_URL || request.nextUrl.origin;
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {
