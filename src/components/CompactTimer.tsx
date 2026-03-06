@@ -76,7 +76,7 @@ export default function CompactTimer() {
 
   // Phase-completion notification + end sound
   useEffect(() => {
-    if (lastTransitionType === "completed") {
+    if (lastTransitionType === "completed" || (lastTransitionType === "skipped" && prevPhase.current === "work")) {
       if (!isRemoteTransition) playEndSound();
       const { showFlash } = notifyPhaseComplete(prevPhase.current, phase, {
         isRemote: isRemoteTransition,
@@ -295,11 +295,6 @@ export default function CompactTimer() {
   }, [currentIntention, session?.user, intentionId, start]);
 
   const handleSkip = useCallback(() => {
-    if (intentionId) {
-      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      clearCurrentIntention();
-    }
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -320,19 +315,22 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        skip({ deferAnalytics: true, deferredSession });
+        const capturedIntentionId = intentionId;
+        setIntentionId(null);
+        clearCurrentIntention();
+        skip({ deferAnalytics: true, deferredSession, intentionId: capturedIntentionId });
         return;
       }
+    }
+    if (intentionId) {
+      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      clearCurrentIntention();
     }
     skip();
   }, [intentionId, clearCurrentIntention, skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handleReset = useCallback(() => {
-    if (intentionId) {
-      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      clearCurrentIntention();
-    }
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -353,9 +351,17 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        reset({ deferAnalytics: true, deferredSession });
+        const capturedIntentionId = intentionId;
+        setIntentionId(null);
+        clearCurrentIntention();
+        reset({ deferAnalytics: true, deferredSession, intentionId: capturedIntentionId });
         return;
       }
+    }
+    if (intentionId) {
+      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
+      setIntentionId(null);
+      clearCurrentIntention();
     }
     reset();
   }, [intentionId, clearCurrentIntention, reset, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
@@ -675,7 +681,12 @@ export default function CompactTimer() {
       {pendingInterruptPrompt && session?.user && (
         <InterruptPromptModal
           elapsedSeconds={pendingInterruptPrompt.session.actualDuration}
-          onCount={() => resolveInterruptPrompt(true)}
+          onCount={() => {
+            if (pendingInterruptPrompt.intentionId) {
+              fetch(`/api/intentions/${pendingInterruptPrompt.intentionId}/skip`, { method: "POST" }).catch(() => {});
+            }
+            resolveInterruptPrompt(true);
+          }}
           onDiscard={() => resolveInterruptPrompt(false)}
         />
       )}

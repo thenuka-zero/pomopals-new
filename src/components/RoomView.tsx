@@ -331,7 +331,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           date: new Date().toISOString().split("T")[0],
         };
         sendAction("skip");
-        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "skip" } });
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "skip", intentionId: null } });
         return;
       }
     }
@@ -369,7 +369,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           date: new Date().toISOString().split("T")[0],
         };
         sendAction("reset");
-        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "reset" } });
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "reset", intentionId: null } });
         return;
       }
     }

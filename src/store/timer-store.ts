@@ -43,15 +43,15 @@ interface TimerState {
   roomParticipantCount: number | null;
 
   // Interrupt prompt state
-  pendingInterruptPrompt: { session: PomodoroSession; action: "skip" | "reset" } | null;
+  pendingInterruptPrompt: { session: PomodoroSession; action: "skip" | "reset"; intentionId: string | null } | null;
   resolveInterruptPrompt: (count: boolean) => void;
 
   // Actions
   start: () => void;
   pause: () => void;
   resume: () => void;
-  reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession }) => void;
-  skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession }) => void;
+  reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
+  skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
   tick: () => void;
 
   // Intentions actions
@@ -179,7 +179,7 @@ export const useTimerStore = create<TimerState>()(
             currentSessionStart: null,
             lastTransitionType: "reset",
             isRemoteTransition: false,
-            pendingInterruptPrompt: { session: opts.deferredSession, action: "reset" },
+            pendingInterruptPrompt: { session: opts.deferredSession, action: "reset", intentionId: opts.intentionId ?? null },
           });
         } else {
           set({
@@ -203,7 +203,7 @@ export const useTimerStore = create<TimerState>()(
           set({
             lastTransitionType: "skipped",
             isRemoteTransition: false,
-            pendingInterruptPrompt: { session: opts.deferredSession, action: "skip" },
+            pendingInterruptPrompt: { session: opts.deferredSession, action: "skip", intentionId: opts.intentionId ?? null },
           });
           transitionPhase(state, set);
         } else {
