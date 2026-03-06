@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useTimerStore } from "@/store/timer-store";
-import { useNotifications, unlockAudioContext } from "@/hooks/useNotifications";
+import { useNotifications, unlockAudioContext, playStartSound, playEndSound } from "@/hooks/useNotifications";
 import Settings from "@/components/Settings";
 import CreateRoomModal from "@/components/CreateRoomModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
@@ -67,9 +67,10 @@ export default function CompactTimer() {
     };
   }, [status, tick]);
 
-  // Phase-completion notification
+  // Phase-completion notification + end sound
   useEffect(() => {
     if (lastTransitionType === "completed") {
+      if (!isRemoteTransition) playEndSound();
       const { showFlash } = notifyPhaseComplete(prevPhase.current, phase, {
         isRemote: isRemoteTransition,
       });
@@ -296,6 +297,7 @@ export default function CompactTimer() {
     if (status === "idle") {
       requestPermission();
       unlockAudioContext();
+      playStartSound();
       handleStart();
     } else if (status === "running") {
       pause();
@@ -542,8 +544,8 @@ export default function CompactTimer() {
                   </svg>
                 </button>
 
-                {/* Reset — only when paused */}
-                {status === "paused" && (
+                {/* Reset — visible when running or paused */}
+                {status !== "idle" && (
                   <button
                     onClick={handleReset}
                     className="w-8 h-8 rounded-full flex items-center justify-center text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0] transition-all"
