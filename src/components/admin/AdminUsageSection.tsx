@@ -45,6 +45,12 @@ interface UsageData {
     sessionsCompleted: number;
     activeUsers: number;
   }[];
+  mostActiveUsers: {
+    userId: string | null;
+    name: string;
+    email: string;
+    sessionsCompleted: number;
+  }[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -167,7 +173,7 @@ export default function AdminUsageSection({ refreshKey }: Props) {
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           }
-          label="Total Completed (All Time)"
+          label="Pomodoro Sessions Completed (All Time)"
           value={data?.pomodoros.totalCompleted.toLocaleString() ?? "—"}
           subtitle={`${data?.pomodoros.totalStarted.toLocaleString() ?? "—"} started`}
         />
@@ -181,7 +187,7 @@ export default function AdminUsageSection({ refreshKey }: Props) {
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           }
-          label="Completed (Last 30 days)"
+          label="Pomodoro Sessions Completed (Last 30 days)"
           value={data?.pomodoros.totalCompletedLast30Days.toLocaleString() ?? "—"}
         />
         <AdminStatCard
@@ -325,6 +331,64 @@ export default function AdminUsageSection({ refreshKey }: Props) {
               <Bar dataKey="count" name="Sessions" fill="#E54B4B" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Most active users leaderboard */}
+      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#F0E6D3]">
+          <h3 className="text-sm text-[#8B7355] font-semibold">Most Active Users — Last 30 Days</h3>
+        </div>
+        {loading ? (
+          <ul className="divide-y divide-[#F0E6D3]">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-5 py-3">
+                <div className="w-5 h-4 bg-[#F0E6D3] rounded animate-pulse flex-shrink-0" />
+                <div className="w-8 h-8 rounded-full bg-[#F0E6D3] animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-32 bg-[#F0E6D3] rounded animate-pulse" />
+                  <div className="h-2.5 w-48 bg-[#F0E6D3] rounded animate-pulse" />
+                </div>
+                <div className="h-2.5 w-16 bg-[#F0E6D3] rounded animate-pulse" />
+              </li>
+            ))}
+          </ul>
+        ) : (data?.mostActiveUsers ?? []).length === 0 ? (
+          <p className="text-center text-[#A08060] text-sm py-8">No sessions recorded yet.</p>
+        ) : (
+          <ul className="divide-y divide-[#F0E6D3]">
+            {(data?.mostActiveUsers ?? []).map((user, idx) => {
+              const initials = user.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+              const rankColors = ["#E54B4B", "#E5A03E", "#6EAE3E"];
+              const rankColor = rankColors[idx] ?? "#A08060";
+              return (
+                <li key={user.userId ?? idx} className="flex items-center gap-3 px-5 py-3 hover:bg-[#FDF6EC] transition-colors">
+                  {/* Rank */}
+                  <span className="w-5 text-xs font-extrabold flex-shrink-0 text-center" style={{ color: rankColor }}>
+                    {idx + 1}
+                  </span>
+                  {/* Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-[#E54B4B]/10 text-[#E54B4B] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {initials}
+                  </div>
+                  {/* Name + email */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#3D2C2C] truncate">{user.name}</p>
+                    <p className="text-xs text-[#A08060] truncate">{user.email}</p>
+                  </div>
+                  {/* Session count */}
+                  <span className="text-xs font-bold text-[#E54B4B] flex-shrink-0">
+                    {user.sessionsCompleted.toLocaleString()} <span className="text-[#A08060] font-normal">sessions</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </section>

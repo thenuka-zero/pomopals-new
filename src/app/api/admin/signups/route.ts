@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { count, gte, sql, eq } from "drizzle-orm";
+import { count, gte, sql, eq, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +68,19 @@ export async function GET() {
       return { date, newUsers: signupMap.get(date) ?? 0 };
     });
 
+    // ── Recent sign-ups feed ──────────────────────────────────────────────────
+    const recentSignups = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(desc(users.createdAt))
+      .limit(20);
+
     return NextResponse.json({
       totals: {
         totalUsers,
@@ -76,6 +89,7 @@ export async function GET() {
         verificationRate,
       },
       dailySignups,
+      recentSignups,
     });
   } catch (err) {
     console.error("[admin/signups] Error:", err);

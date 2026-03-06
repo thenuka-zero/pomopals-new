@@ -12,9 +12,17 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, formatDistanceToNow } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RecentSignup {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+}
 
 interface SignupsData {
   totals: {
@@ -24,6 +32,7 @@ interface SignupsData {
     verificationRate: number;
   };
   dailySignups: { date: string; newUsers: number }[];
+  recentSignups: RecentSignup[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -215,6 +224,66 @@ export default function AdminSignupsSection({ refreshKey }: Props) {
               />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+      </div>
+      {/* Recent sign-ups feed */}
+      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#F0E6D3]">
+          <h3 className="text-sm text-[#8B7355] font-semibold">Newest Sign-ups</h3>
+        </div>
+        {loading ? (
+          <ul className="divide-y divide-[#F0E6D3]">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-5 py-3">
+                <div className="w-8 h-8 rounded-full bg-[#F0E6D3] animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-32 bg-[#F0E6D3] rounded animate-pulse" />
+                  <div className="h-2.5 w-48 bg-[#F0E6D3] rounded animate-pulse" />
+                </div>
+                <div className="h-2.5 w-16 bg-[#F0E6D3] rounded animate-pulse" />
+              </li>
+            ))}
+          </ul>
+        ) : (data?.recentSignups ?? []).length === 0 ? (
+          <p className="text-center text-[#A08060] text-sm py-8">No sign-ups yet.</p>
+        ) : (
+          <ul className="divide-y divide-[#F0E6D3]">
+            {(data?.recentSignups ?? []).map((user) => {
+              const initials = user.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+              return (
+                <li key={user.id} className="flex items-center gap-3 px-5 py-3 hover:bg-[#FDF6EC] transition-colors">
+                  {/* Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-[#E54B4B]/10 text-[#E54B4B] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {initials}
+                  </div>
+                  {/* Name + email */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#3D2C2C] truncate">{user.name}</p>
+                    <p className="text-xs text-[#A08060] truncate">{user.email}</p>
+                  </div>
+                  {/* Verified badge */}
+                  {user.emailVerified ? (
+                    <span className="text-[10px] font-bold text-[#6EAE3E] bg-[#6EAE3E]/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-[#E5A03E] bg-[#E5A03E]/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      Unverified
+                    </span>
+                  )}
+                  {/* Time ago */}
+                  <span className="text-[10px] text-[#A08060] flex-shrink-0 hidden sm:block">
+                    {formatDistanceToNow(parseISO(user.createdAt), { addSuffix: true })}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </section>

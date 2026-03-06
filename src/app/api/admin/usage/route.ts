@@ -7,7 +7,8 @@ import {
   userAchievements,
   friendships,
 } from "@/lib/db/schema";
-import { and, count, countDistinct, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { users } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export async function GET() {
     // ── Active users ─────────────────────────────────────────────────────────
 
     const today = todayStr();
-    const sevenDaysAgo = nDaysAgo(6);
+    const sixDaysAgo = nDaysAgo(6);   // WAU: today + 6 days back = 7 days
     const twentyNineDaysAgo = nDaysAgo(29);
 
     const [dauRow] = await db
@@ -81,7 +82,7 @@ export async function GET() {
     const [wauRow] = await db
       .select({ count: countDistinct(pomodoroSessions.userId) })
       .from(pomodoroSessions)
-      .where(gte(pomodoroSessions.date, sevenDaysAgo));
+      .where(gte(pomodoroSessions.date, sixDaysAgo));
 
     const [mauRow] = await db
       .select({ count: countDistinct(pomodoroSessions.userId) })
@@ -102,9 +103,7 @@ export async function GET() {
     const [intentionsReflectedRow] = await db
       .select({ count: count() })
       .from(intentions)
-      .where(
-        sql`status IN ('completed', 'not_completed')`
-      );
+      .where(inArray(intentions.status, ["completed", "not_completed"]));
 
     const [achievementsUnlockedRow] = await db
       .select({ count: count() })
@@ -184,6 +183,40 @@ export async function GET() {
       };
     });
 
+    // ── Most active users (last 30 days) ─────────────────────────────────────
+    const activeUserRows = await db
+      .select({
+        userId: pomodoroSessions.userId,
+        sessionsCompleted: count(),
+      })
+      .from(pomodoroSessions)
+      .where(
+        and(
+          eq(pomodoroSessions.phase, "work"),
+          eq(pomodoroSessions.completed, true),
+          gte(pomodoroSessions.date, thirtyDaysAgo)
+        )
+      )
+      .groupBy(pomodoroSessions.userId)
+      .orderBy(desc(count()))
+      .limit(10);
+
+    const activeUserIds = activeUserRows.map((r) => r.userId).filter(Boolean) as string[];
+    const userRows = activeUserIds.length > 0
+      ? await db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .where(inArray(users.id, activeUserIds))
+      : [];
+
+    const userMap = new Map(userRows.map((u) => [u.id, u]));
+    const mostActiveUsers = activeUserRows.map((r) => ({
+      userId: r.userId,
+      name: userMap.get(r.userId as string)?.name ?? "Unknown",
+      email: userMap.get(r.userId as string)?.email ?? "",
+      sessionsCompleted: r.sessionsCompleted,
+    }));
+
     return NextResponse.json({
       pomodoros: {
         totalCompleted,
@@ -206,6 +239,7 @@ export async function GET() {
       },
       peakHours,
       dailyTrend,
+      mostActiveUsers,
     });
   } catch (err) {
     console.error("[admin/usage] Error:", err);
