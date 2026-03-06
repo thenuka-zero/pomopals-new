@@ -12,10 +12,51 @@ interface TimerProps {
   isReadOnly?: boolean;
 }
 
+function playStartSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(520, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(780, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+    osc.onended = () => ctx.close();
+  } catch { /* AudioContext unavailable */ }
+}
+
+function playEndSound() {
+  try {
+    const ctx = new AudioContext();
+    const notes = [523, 659, 784]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      const t = ctx.currentTime + i * 0.22;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      osc.start(t);
+      osc.stop(t + 0.6);
+    });
+    setTimeout(() => ctx.close(), 2500);
+  } catch { /* AudioContext unavailable */ }
+}
+
 export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, isReadOnly }: TimerProps) {
-  const { phase, status, timeRemaining, pomodoroCount, settings, start, pause, resume, reset, skip, tick } =
+  const { phase, status, timeRemaining, pomodoroCount, settings, lastTransitionType, start, pause, resume, reset, skip, tick } =
     useTimerStore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const prevStatusRef = useRef(status);
+  const prevTransitionRef = useRef(lastTransitionType);
 
   useEffect(() => {
     if (isRoomMode) return;
@@ -28,6 +69,22 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [status, tick, isRoomMode]);
+
+  // Start sound: idle → running
+  useEffect(() => {
+    if (prevStatusRef.current === "idle" && status === "running") {
+      playStartSound();
+    }
+    prevStatusRef.current = status;
+  }, [status]);
+
+  // End sound: phase completed
+  useEffect(() => {
+    if (lastTransitionType === "completed" && prevTransitionRef.current !== "completed") {
+      playEndSound();
+    }
+    prevTransitionRef.current = lastTransitionType;
+  }, [lastTransitionType]);
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
