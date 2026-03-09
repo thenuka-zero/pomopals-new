@@ -387,8 +387,8 @@ export default function CompactTimer() {
   const showIntentionIcon =
     session?.user && intentionsEnabled && status !== "running" && phase === "work";
 
-  // Show active intention display when running with an intention
-  const showActiveIntention = status === "running" && currentIntention;
+  // Show active intention display when running or paused with an intention
+  const showActiveIntention = (status === "running" || status === "paused") && currentIntention;
 
   const charCount = currentIntention.length;
   const isOverLimit = charCount > 280;
@@ -556,7 +556,7 @@ export default function CompactTimer() {
             <div className="px-5 pb-3 -mt-1">
               <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] flex items-center justify-center gap-2">
                 <span className="text-xs">💭</span>
-                <span className="truncate">{currentIntention}</span>
+                <span className="break-words">{currentIntention}</span>
               </div>
             </div>
           )}

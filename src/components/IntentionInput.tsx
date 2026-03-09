@@ -16,7 +16,7 @@ export default function IntentionInput() {
     return (
       <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-center gap-2">
         <span className="text-xs">💭</span>
-        <span className="truncate">{currentIntention}</span>
+        <span className="break-words">{currentIntention}</span>
       </div>
     );
   }
