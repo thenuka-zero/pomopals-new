@@ -25,7 +25,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const [error, setError] = useState("");
   const [joined, setJoined] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [failCount, setFailCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
   const syncState = useTimerStore((s) => s.syncState);
@@ -46,13 +45,18 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const { requestPermission, notifyPhaseComplete } = useNotifications();
   const prevRoomPhase = useRef<TimerPhase | null>(null);
   const prevRoomTimeRemaining = useRef<number>(Infinity);
+  const prevRoomStatus = useRef<string | null>(null);
+  const currentIntentionRef = useRef<string>("");
+  const roomWorkSessionStartRef = useRef<number | null>(null);
 
   const isAdmin = room?.hostId === userId;
+  const isPrivilegedUser = isAdmin || (room?.coHostIds?.includes(userId) ?? false);
+  const isAdminRef = useRef(false);
+  isAdminRef.current = isAdmin; // sync during render so beforeunload always sees latest value
 
-  // Keep intentionIdRef in sync with intentionId state for use in callbacks
-  useEffect(() => {
-    intentionIdRef.current = intentionId;
-  }, [intentionId]);
+  currentIntentionRef.current = currentIntention; // sync during render
+  // Keep intentionIdRef in sync for use in callbacks
+  useEffect(() => { intentionIdRef.current = intentionId; }, [intentionId]);
 
   // Set room context in timer store for session recording
   useEffect(() => {
@@ -78,12 +82,18 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       .catch(() => {});
   }, [session?.user]);
 
-  // Clear intentionId when leaving work phase and not pending reflection
+  // Clear intentionId and intention text when leaving work phase and not pending reflection
   useEffect(() => {
     if (timerPhase !== "work" && !pendingReflection) {
       setIntentionId(null);
+      clearCurrentIntention();
     }
-  }, [timerPhase, pendingReflection]);
+    // Clear stuck pendingReflection if there's no active intention
+    if (pendingReflection && !intentionId && timerPhase !== "work") {
+      setPendingReflection(false);
+      clearCurrentIntention();
+    }
+  }, [timerPhase, pendingReflection, intentionId, clearCurrentIntention, setPendingReflection]);
 
   const fetchJoinRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -91,7 +101,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       const res = await fetch(`/api/rooms/${roomId}/join-requests`);
       if (!res.ok) return;
       const data = await res.json();
-      const pending = (data.requests ?? []).filter(
+      const pending = (data.joinRequests ?? []).filter(
         (r: RoomJoinRequest) => r.status === "pending"
       );
       setJoinRequests(pending);
@@ -125,6 +135,44 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         prevRoomTimeRemaining.current <= 3
       ) {
         notifyPhaseComplete(prevRoomPhase.current, newPhase, { isRemote: false });
+
+        // Natural work session completion — record analytics and trigger reflection
+        if (prevRoomPhase.current === "work") {
+          const workDuration = data.settings.workDuration * 60;
+          const sessionId = uuidv4();
+          if (session?.user?.id) {
+            const startedAt = roomWorkSessionStartRef.current
+              ? new Date(roomWorkSessionStartRef.current).toISOString()
+              : new Date(Date.now() - workDuration * 1000).toISOString();
+            fetch("/api/analytics", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: sessionId,
+                userId: session.user.id,
+                startedAt,
+                endedAt: new Date().toISOString(),
+                phase: "work",
+                plannedDuration: workDuration,
+                actualDuration: workDuration,
+                completed: true,
+                completionPercentage: 100,
+                date: new Date().toISOString().split("T")[0],
+                sessionRunId: useTimerStore.getState().sessionRunId,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                roomId,
+                roomParticipantCount: data.participants.length,
+              }),
+            }).catch(() => {});
+          }
+          if (intentionIdRef.current) {
+            useTimerStore.setState({
+              pendingReflection: true,
+              lastCompletedSessionId: session?.user?.id ? sessionId : null,
+            });
+          }
+          roomWorkSessionStartRef.current = null;
+        }
       }
 
       // Detect skip: phase changed while time was still > 3s remaining
@@ -140,12 +188,53 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         intentionIdRef.current = null;
         setIntentionId(null);
         clearCurrentIntention();
+        roomWorkSessionStartRef.current = null;
+      }
+
+      const newStatus = data.timerState.status;
+
+      // Track work session start for all participants
+      if (
+        newStatus === "running" &&
+        newPhase === "work" &&
+        (prevRoomStatus.current !== "running" || prevRoomPhase.current !== "work") &&
+        !roomWorkSessionStartRef.current
+      ) {
+        roomWorkSessionStartRef.current = Date.now();
+      }
+
+      // Non-privileged participants: save intention when room timer starts
+      if (
+        !isAdminRef.current &&
+        session?.user &&
+        prevRoomStatus.current !== null &&
+        prevRoomStatus.current !== "running" &&
+        newStatus === "running" &&
+        newPhase === "work"
+      ) {
+        const text = currentIntentionRef.current.trim();
+        if (text && !intentionIdRef.current) {
+          const newId = crypto.randomUUID();
+          intentionIdRef.current = newId;
+          setIntentionId(newId);
+          fetch("/api/intentions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: newId,
+              text,
+              startedAt: new Date().toISOString(),
+              date: new Date().toISOString().slice(0, 10),
+            }),
+          }).catch(() => {});
+        }
       }
 
       prevRoomPhase.current = newPhase;
       prevRoomTimeRemaining.current = newTimeRemaining;
+      prevRoomStatus.current = newStatus;
 
-      syncState(newPhase, data.timerState.status, newTimeRemaining, data.timerState.pomodoroCount);
+      syncState(newPhase, newStatus, newTimeRemaining, data.timerState.pomodoroCount);
 
       // Fetch join requests if the current user is the host
       if (data.hostId === userId) {
@@ -160,6 +249,10 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   useEffect(() => {
     if (joined) return;
     const join = async () => {
+      const HOST_KEY = `pomopals-was-host-${roomId}-${userId}`;
+      const shouldReclaimHost = sessionStorage.getItem(HOST_KEY) === "1";
+      if (shouldReclaimHost) sessionStorage.removeItem(HOST_KEY);
+
       try {
         const res = await fetch(`/api/rooms/${roomId}`, {
           method: "POST",
@@ -168,6 +261,14 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         });
         if (res.ok) {
           setJoined(true);
+          // Reclaim host if we were the host before a page refresh
+          if (shouldReclaimHost) {
+            await fetch(`/api/rooms/${roomId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "reclaim-host", userId }),
+            }).catch(() => {});
+          }
           fetchRoom();
         } else if (res.status === 403) {
           setError("This room is full (max 20 participants).");
@@ -203,12 +304,18 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   useEffect(() => {
     if (!joined) return;
 
+    const HOST_KEY = `pomopals-was-host-${roomId}-${userId}`;
+
     const handleBeforeUnload = () => {
+      // Persist host status so we can reclaim it after a page refresh.
+      // sessionStorage survives a refresh but is cleared when the tab closes.
+      if (isAdminRef.current) {
+        sessionStorage.setItem(HOST_KEY, "1");
+      }
       navigator.sendBeacon(
         `/api/rooms/${roomId}`,
         new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
       );
-      // Also clear presence
       navigator.sendBeacon(
         "/api/presence",
         new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
@@ -222,7 +329,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         `/api/rooms/${roomId}`,
         new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
       );
-      // Clear presence on unmount
       navigator.sendBeacon(
         "/api/presence",
         new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
@@ -278,7 +384,17 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     fetchRoom();
   };
 
+  const handleParticipantAction = async (action: string, targetUserId: string) => {
+    await fetch(`/api/rooms/${roomId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, userId, targetUserId }),
+    });
+    fetchRoom();
+  };
+
   const handleRoomStart = () => {
+    roomWorkSessionStartRef.current = Date.now();
     // Create intention if text is set and user is authenticated
     if (currentIntention.trim() && session?.user) {
       const newId = crypto.randomUUID();
@@ -307,6 +423,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       setIntentionId(null);
       intentionIdRef.current = null;
       clearCurrentIntention();
+      roomWorkSessionStartRef.current = null;
     }
     // Check if we should prompt the user to count this interrupted session
     const s = useTimerStore.getState();
@@ -346,6 +463,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       intentionIdRef.current = null;
       clearCurrentIntention();
     }
+    roomWorkSessionStartRef.current = null;
     // Check if we should prompt the user to count this interrupted session
     const s = useTimerStore.getState();
     if (
@@ -396,12 +514,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   // Error state
   if (error) {
     return (
@@ -448,25 +560,21 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       {/* Room header */}
       <div className="text-center">
         <h1 className="text-2xl font-bold text-[#3D2C2C]">{room.name}</h1>
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <p className="text-[#8B7355] text-sm">
-            Room Code: <span className="font-mono font-bold text-[#E54B4B]">{room.id}</span>
-          </p>
-          <button
-            onClick={copyCode}
-            className="text-xs text-[#A08060] hover:text-[#E54B4B] transition-colors"
-            title="Copy code"
-          >
-            {copiedCode ? "Copied!" : "Copy"}
-          </button>
-        </div>
+        <p className="text-[#8B7355] text-sm mt-1">
+          Room Code: <span className="font-mono font-bold text-[#E54B4B]">{room.id}</span>
+        </p>
       </div>
 
       {/* Share button */}
       <button
         onClick={copyLink}
-        className="px-5 py-2.5 bg-white border-2 border-[#F0E6D3] rounded-full text-sm font-bold text-[#5C4033] hover:border-[#E54B4B]/30 hover:bg-[#FFF8F0] transition-all"
+        className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-[#F0E6D3] rounded-full text-sm font-bold text-[#5C4033] hover:border-[#E54B4B]/30 hover:bg-[#FFF8F0] transition-all"
       >
+        {copied ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        )}
         {copied ? "Link Copied!" : "Copy Invite Link"}
       </button>
 
@@ -474,13 +582,13 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       <div className="w-full max-w-sm flex flex-col items-center">
         <Timer
           isRoomMode
-          isReadOnly={!isAdmin}
+          isReadOnly={!isPrivilegedUser}
           onStart={handleRoomStart}
           onPause={() => sendAction("pause")}
           onReset={handleRoomReset}
           onSkip={handleRoomSkip}
         />
-        {isAdmin && session?.user && intentionsEnabled && (
+        {session?.user && intentionsEnabled && (
           <div className="w-full max-w-xs mt-2">
             <IntentionInput />
           </div>
@@ -488,7 +596,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       </div>
 
       {/* Host controls label for participants */}
-      {!isAdmin && (
+      {!isPrivilegedUser && (
         <p className="text-sm text-[#A08060] font-semibold -mt-4">
           The host controls the timer
         </p>
@@ -500,22 +608,60 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           Participants ({room.participants.length})
         </h3>
         <div className="space-y-2">
-          {room.participants.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-[#F0E6D3] rounded-xl">
-              <div className="w-8 h-8 rounded-full bg-[#E54B4B] flex items-center justify-center text-white text-sm font-bold">
-                {p.name[0].toUpperCase()}
+          {room.participants.map((p) => {
+            const isParticipantHost = p.id === room.hostId;
+            const isParticipantCoHost = room.coHostIds.includes(p.id);
+            const isMe = p.id === userId;
+            return (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-[#F0E6D3] rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-[#E54B4B] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  {p.name[0].toUpperCase()}
+                </div>
+                <span className="text-[#3D2C2C] text-sm font-semibold truncate">{p.name}</span>
+                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                  {isParticipantHost && (
+                    <span className="text-xs text-[#E54B4B] font-bold">Host</span>
+                  )}
+                  {isParticipantCoHost && !isParticipantHost && (
+                    <span className="text-xs text-[#F5A623] font-bold">Co-Host</span>
+                  )}
+                  {isMe && (
+                    <span className="text-xs text-[#A08060] font-semibold">You</span>
+                  )}
+                  {/* Host-only actions for other participants */}
+                  {isAdmin && !isMe && (
+                    <div className="flex items-center gap-1 ml-1">
+                      {!isParticipantHost && (
+                        <button
+                          onClick={() => handleParticipantAction(
+                            isParticipantCoHost ? "remove-cohost" : "add-cohost",
+                            p.id
+                          )}
+                          className="text-xs px-2 py-0.5 rounded-full border border-[#F0E6D3] text-[#8B7355] hover:border-[#F5A623] hover:text-[#F5A623] transition-colors"
+                          title={isParticipantCoHost ? "Remove co-host" : "Make co-host"}
+                        >
+                          {isParticipantCoHost ? "−Co-Host" : "+Co-Host"}
+                        </button>
+                      )}
+                      {!isParticipantHost && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Make ${p.name} the host?`)) {
+                              handleParticipantAction("transfer-host", p.id);
+                            }
+                          }}
+                          className="text-xs px-2 py-0.5 rounded-full border border-[#F0E6D3] text-[#8B7355] hover:border-[#E54B4B] hover:text-[#E54B4B] transition-colors"
+                          title="Transfer host"
+                        >
+                          Make Host
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <span className="text-[#3D2C2C] text-sm font-semibold">{p.name}</span>
-              <div className="ml-auto flex items-center gap-2">
-                {p.id === room.hostId && (
-                  <span className="text-xs text-[#E54B4B] font-bold">Host</span>
-                )}
-                {p.id === userId && (
-                  <span className="text-xs text-[#A08060] font-semibold">You</span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
