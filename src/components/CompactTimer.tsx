@@ -511,43 +511,55 @@ export default function CompactTimer() {
 
           {/* Intention input — toggled via pencil icon */}
           {showIntentionInput && showIntentionIcon && (
-            <div className="px-5 pb-3 -mt-1 flex gap-2">
-              <input
-                type="text"
-                value={currentIntention}
-                onChange={(e) => {
-                  if (e.target.value.length <= 280) {
-                    setCurrentIntention(e.target.value);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && currentIntention.trim()) {
-                    setShowIntentionInput(false);
-                  }
-                }}
-                placeholder="What will you focus on?"
-                maxLength={280}
-                autoFocus
-                className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm
-                  bg-[#F0E6D3]/40 border
-                  ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
-                  text-[#3D2C2C] placeholder-[#A08060]
-                  focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20 focus:border-[#E54B4B]/40
-                  transition-colors
-                `}
-              />
-              <button
-                onClick={() => setShowIntentionInput(false)}
-                disabled={!currentIntention.trim()}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#E54B4B] text-white hover:bg-[#D43D3D] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
-                title="Set intention"
-                aria-label="Confirm intention"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </button>
+            <div className="px-5 pb-3 -mt-1">
+              <div className="flex gap-2 items-start">
+                <textarea
+                  rows={1}
+                  value={currentIntention}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\n/g, "");
+                    if (val.length <= 280) {
+                      setCurrentIntention(val);
+                      const el = e.target;
+                      el.style.height = "auto";
+                      el.style.height = el.scrollHeight + "px";
+                    }
+                  }}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (currentIntention.trim()) setShowIntentionInput(false);
+                    }
+                  }}
+                  placeholder="What will you focus on?"
+                  autoFocus
+                  className={`
+                    flex-1 px-3 py-2 rounded-lg text-sm
+                    bg-[#F0E6D3]/40 border
+                    ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
+                    text-[#3D2C2C] placeholder-[#A08060]
+                    focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20 focus:border-[#E54B4B]/40
+                    transition-colors resize-none overflow-hidden
+                  `}
+                />
+                <button
+                  onClick={() => setShowIntentionInput(false)}
+                  disabled={!currentIntention.trim()}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                  title="Set intention"
+                  aria-label="Confirm intention"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
 

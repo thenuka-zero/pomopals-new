@@ -9,13 +9,13 @@ export default function IntentionInput() {
   const status = useTimerStore((s) => s.status);
   const phase = useTimerStore((s) => s.phase);
   const [confirmed, setConfirmed] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // When running, show read-only active intention
   if (status === "running" && currentIntention) {
     return (
-      <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-center gap-2">
-        <span className="text-xs">💭</span>
+      <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-start gap-2">
+        <span className="text-xs mt-0.5">💭</span>
         <span className="break-words">{currentIntention}</span>
       </div>
     );
@@ -41,57 +41,68 @@ export default function IntentionInput() {
     inputRef.current?.blur();
   };
 
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  };
+
   return (
     <div className="w-full">
-      <div className="relative flex gap-2">
-        <input
+      <div className="flex gap-2 items-start">
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={currentIntention}
           onChange={(e) => {
-            if (e.target.value.length <= 280) {
-              setCurrentIntention(e.target.value);
+            const val = e.target.value.replace(/\n/g, "");
+            if (val.length <= 280) {
+              setCurrentIntention(val);
               setConfirmed(false);
+              autoResize(e.target);
             }
           }}
+          onInput={(e) => autoResize(e.currentTarget)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleConfirm();
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleConfirm();
+            }
           }}
           placeholder="What will you focus on?"
-          maxLength={280}
           className={`
             flex-1 px-3 py-2 rounded-lg text-sm
             bg-[#F0E6D3]/40 border
             ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
             text-[#3D2C2C] placeholder-[#A08060]
             focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20 focus:border-[#E54B4B]/40
-            transition-colors
+            transition-colors resize-none overflow-hidden
           `}
         />
         {currentIntention.trim() && (
           <button
             onClick={handleConfirm}
-            className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors flex-shrink-0 ${
+            title="Set intention"
+            aria-label="Set intention"
+            className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
               confirmed
                 ? "bg-green-100 text-green-700 border border-green-200"
-                : "bg-[#E54B4B] text-white hover:bg-[#D43D3D]"
+                : "bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20"
             }`}
           >
-            {confirmed ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            ) : "Set"}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
           </button>
         )}
-        {showCounter && !currentIntention.trim() && (
-          <span
-            className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${
-              isOverLimit ? "text-[#E54B4B]" : "text-[#3D2C2C]/40"
-            }`}
-          >
+      </div>
+      {showCounter && (
+        <div className="text-right mt-1">
+          <span className={`text-xs ${isOverLimit ? "text-[#E54B4B]" : "text-[#3D2C2C]/40"}`}>
             {280 - charCount}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
