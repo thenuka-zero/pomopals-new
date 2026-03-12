@@ -4,17 +4,7 @@ import { useState } from "react";
 import { BOOKS } from "@/lib/library-data";
 import BookCard from "./BookCard";
 
-const CATEGORIES = [
-  "All",
-  "Productivity",
-  "Mindfulness",
-  "Wellness",
-  "Stories",
-  "Self-Help",
-  "Social",
-  "Lifestyle",
-  "History",
-];
+const CATEGORIES = ["All"];
 
 export default function Library() {
   const [activeCategory, setActiveCategory] = useState("All");

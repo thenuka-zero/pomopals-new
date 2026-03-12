@@ -50,7 +50,7 @@ function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; 
 
 // ── Individual Achievement Card ────────────────────────────────────────────────
 
-function AchievementCard({ achievement }: { achievement: AchievementWithStatus }) {
+function AchievementCard({ achievement, isNew }: { achievement: AchievementWithStatus; isNew?: boolean }) {
   const isLocked = !achievement.unlocked;
   const isSecretLocked = achievement.isSecret && isLocked;
   const tierC = tierColor(achievement.tier);
@@ -73,9 +73,14 @@ function AchievementCard({ achievement }: { achievement: AchievementWithStatus }
         {/* Tier badge */}
         <div className="flex items-center justify-between">
           <TierBadge tier={achievement.tier} />
-          {achievement.retroactivelyAwarded && (
-            <span className="text-[9px] text-[#A08060] font-medium">★ Retroactive</span>
-          )}
+          <div className="flex items-center gap-1">
+            {isNew && achievement.unlocked && (
+              <span className="text-[9px] font-bold bg-[#E54B4B] text-white px-1.5 py-0.5 rounded-full leading-none">New</span>
+            )}
+            {achievement.retroactivelyAwarded && (
+              <span className="text-[9px] text-[#A08060] font-medium">★ Retroactive</span>
+            )}
+          </div>
         </div>
 
         {/* Emoji + name */}
@@ -163,7 +168,6 @@ function ComingSoonSection({ tier }: { tier: AchievementTier }) {
 // ── Main TrophyCase component ──────────────────────────────────────────────────
 
 type TierFilter = "bronze" | "silver" | "gold" | "platinum";
-type StatusFilter = "all" | "unlocked" | "locked";
 
 export default function TrophyCase() {
   const { data: session } = useSession();
@@ -171,8 +175,8 @@ export default function TrophyCase() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TierFilter>("bronze");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [retroactiveBannerDismissed, setRetroactiveBannerDismissed] = useState(true);
+  const [newAchievementIds, setNewAchievementIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const dismissed = localStorage.getItem("trophy-case-retroactive-banner-dismissed") === "true";
@@ -187,6 +191,16 @@ export default function TrophyCase() {
       .then((d: GetAchievementsResponse) => {
         setData(d);
         setLoading(false);
+
+        // Compute "New" ribbons
+        const unlockedIds = d.achievements.filter((a) => a.unlocked).map((a) => a.id);
+        const prevSeen = new Set<string>(
+          JSON.parse(localStorage.getItem("pomo-seen-achievement-ids") ?? "[]")
+        );
+        const newIds = new Set(unlockedIds.filter((id) => !prevSeen.has(id)));
+        setNewAchievementIds(newIds);
+        // Mark all currently-unlocked as seen
+        localStorage.setItem("pomo-seen-achievement-ids", JSON.stringify(unlockedIds));
       })
       .catch(() => {
         setError("Failed to load achievements");
@@ -239,12 +253,6 @@ export default function TrophyCase() {
     { value: "platinum", label: "💎 Platinum" },
   ];
 
-  const statuses: { value: StatusFilter; label: string }[] = [
-    { value: "all", label: "All" },
-    { value: "unlocked", label: "Unlocked" },
-    { value: "locked", label: "Locked" },
-  ];
-
   // Only show cards for bronze tier; others show "coming soon"
   const isBronze = tierFilter === "bronze";
 
@@ -253,12 +261,6 @@ export default function TrophyCase() {
     : [];
 
   if (isBronze) {
-    if (statusFilter === "unlocked") {
-      filtered = filtered.filter((a) => a.unlocked);
-    } else if (statusFilter === "locked") {
-      filtered = filtered.filter((a) => !a.unlocked);
-    }
-
     // Sort: unlocked first (by unlockedAt desc), then locked
     filtered = [...filtered].sort((a, b) => {
       if (a.unlocked && !b.unlocked) return -1;
@@ -317,23 +319,6 @@ export default function TrophyCase() {
             </button>
           ))}
         </div>
-        {isBronze && (
-          <div className="flex flex-wrap gap-1">
-            {statuses.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setStatusFilter(s.value)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                  statusFilter === s.value
-                    ? "bg-[#3D2C2C] text-white"
-                    : "bg-white border border-[#F0E6D3] text-[#8B7355] hover:text-[#3D2C2C]"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Content */}
@@ -352,7 +337,7 @@ export default function TrophyCase() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {filtered.map((achievement) => (
-                <AchievementCard key={achievement.id} achievement={achievement} />
+                <AchievementCard key={achievement.id} achievement={achievement} isNew={newAchievementIds.has(achievement.id)} />
               ))}
             </div>
           )}

@@ -6,6 +6,8 @@ import AdminSectionHeader from "./AdminSectionHeader";
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -54,6 +56,10 @@ interface Ga4Data {
     page: string;
     sessions: number;
   }[];
+  byDate: {
+    date: string;
+    sessions: number;
+  }[];
 }
 
 interface TrafficData {
@@ -91,6 +97,18 @@ const CHANNEL_COLORS = [
 ];
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+function TrafficTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border-2 border-[#F0E6D3] rounded-xl p-3 shadow-lg text-xs">
+      <p className="font-bold text-[#5C4033] mb-1">{label}</p>
+      <p className="text-[#8B7355]">
+        <span className="font-bold text-[#E54B4B]">{payload[0]?.value?.toLocaleString()}</span> sessions
+      </p>
+    </div>
+  );
+}
+
 function ChannelTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
@@ -140,7 +158,7 @@ export default function AdminTrafficSection({ refreshKey }: Props) {
   }, []);
 
   useEffect(() => {
-    fetchData(refreshKey > 0);
+    fetchData(true);
   }, [refreshKey, fetchData]);
 
   if (error) {
@@ -354,6 +372,69 @@ export default function AdminTrafficSection({ refreshKey }: Props) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Daily sessions chart (GA4) */}
+      <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm text-[#8B7355] font-semibold">
+            Daily Sessions — GA4 (Last 28 Days)
+          </h3>
+        </div>
+        {loading ? (
+          <div className="h-[220px] flex items-center justify-center">
+            <div className="text-[#A08060] text-sm font-semibold animate-pulse">Loading chart...</div>
+          </div>
+        ) : !data?.ga4 ? (
+          <EmptyState message={data?.ga4Error ?? "No GA4 data"} />
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart
+              data={(data.ga4.byDate ?? []).map((d) => ({
+                ...d,
+                label: format(parseISO(d.date), "MMM d"),
+              }))}
+              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="gradGaSessions" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#E54B4B" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#E54B4B" stopOpacity={0.03} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F0E6D3" vertical={false} />
+              <XAxis
+                dataKey="label"
+                stroke="#A08060"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                stroke="#A08060"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip
+                content={<TrafficTooltip />}
+                cursor={{ stroke: "#E54B4B", strokeWidth: 1, strokeDasharray: "4 4" }}
+              />
+              <Area
+                type="monotone"
+                dataKey="sessions"
+                name="Sessions"
+                stroke="#E54B4B"
+                strokeWidth={2}
+                fill="url(#gradGaSessions)"
+                dot={false}
+                activeDot={{ r: 4, fill: "#E54B4B", stroke: "#fff", strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Traffic by channel (GA4) */}

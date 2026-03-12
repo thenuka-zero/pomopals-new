@@ -44,6 +44,11 @@ interface Ga4Page {
   sessions: number;
 }
 
+interface Ga4DailySession {
+  date: string;
+  sessions: number;
+}
+
 interface Ga4Data {
   totals: {
     sessions: number;
@@ -53,6 +58,7 @@ interface Ga4Data {
   };
   byChannel: Ga4Channel[];
   topLandingPages: Ga4Page[];
+  byDate: Ga4DailySession[];
 }
 
 // ─── GSC fetch ───────────────────────────────────────────────────────────────
@@ -139,12 +145,13 @@ async function fetchGa4Data(): Promise<Ga4Data | null> {
   const auth = getGoogleAuth();
   if (!auth) return null;
 
-  const propertyId = process.env.GA4_PROPERTY_ID;
-  if (!propertyId) return null;
+  const rawPropertyId = process.env.GA4_PROPERTY_ID?.trim();
+  if (!rawPropertyId) return null;
+  const propertyId = rawPropertyId.startsWith("properties/") ? rawPropertyId : `properties/${rawPropertyId}`;
 
   const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
 
-  const [totalsResult, channelsResult, pagesResult] = await Promise.all([
+  const [totalsResult, channelsResult, pagesResult, dateResult] = await Promise.all([
     analyticsdata.properties.runReport({
       property: propertyId,
       requestBody: {
@@ -177,6 +184,16 @@ async function fetchGa4Data(): Promise<Ga4Data | null> {
         limit: "5",
       },
     }),
+    analyticsdata.properties.runReport({
+      property: propertyId,
+      requestBody: {
+        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "sessions" }],
+        orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
+        limit: "29",
+      },
+    }),
   ]);
 
   const totalsRow = totalsResult.data.rows?.[0];
@@ -193,6 +210,15 @@ async function fetchGa4Data(): Promise<Ga4Data | null> {
     sessions: parseInt(r.metricValues?.[0]?.value ?? "0", 10),
   }));
 
+  const byDate: Ga4DailySession[] = (dateResult.data.rows ?? []).map((r) => {
+    const raw = r.dimensionValues?.[0]?.value ?? "";
+    // GA4 returns dates as "YYYYMMDD" — convert to "YYYY-MM-DD"
+    const date = raw.length === 8
+      ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+      : raw;
+    return { date, sessions: parseInt(r.metricValues?.[0]?.value ?? "0", 10) };
+  });
+
   return {
     totals: {
       sessions: parseInt(metricValues[0]?.value ?? "0", 10),
@@ -202,6 +228,7 @@ async function fetchGa4Data(): Promise<Ga4Data | null> {
     },
     byChannel,
     topLandingPages,
+    byDate,
   };
 }
 
