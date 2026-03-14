@@ -15,8 +15,14 @@ export default function Navbar() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const { pendingRequestCount, fetchPendingCount } = useFriendsStore();
   const [hasPendingAchievements, setHasPendingAchievements] = useState(false);
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -24,6 +30,10 @@ export default function Navbar() {
     const interval = setInterval(fetchPendingCount, 30_000);
     return () => clearInterval(interval);
   }, [session?.user, fetchPendingCount]);
+
+  useEffect(() => {
+    if (pathname === "/trophies") setHasPendingAchievements(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!session?.user?.emailVerified) return;
@@ -90,7 +100,8 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-1">
+          {/* Desktop nav */}
+          <div className="hidden sm:flex items-center gap-1">
             {status === "loading" ? (
               <div className="ml-3 w-20 h-8 bg-[#F0E6D3] rounded-full animate-pulse" />
             ) : session ? (
@@ -124,7 +135,7 @@ export default function Navbar() {
                   )}
                 </Link>
                 <div className="flex items-center gap-3 ml-3">
-                  <span className="text-sm text-[#8B7355] hidden sm:inline font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
+                  <span className="text-sm text-[#8B7355] font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
                   <button
                     onClick={() => signOut()}
                     className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors"
@@ -152,7 +163,91 @@ export default function Navbar() {
               </div>
             )}
           </div>
+
+          {/* Mobile: badge indicators + hamburger */}
+          <div className="flex sm:hidden items-center gap-2">
+            {session && (
+              <>
+                {hasPendingAchievements && (
+                  <span className="w-2 h-2 bg-[#E54B4B] rounded-full" />
+                )}
+                {pendingRequestCount > 0 && (
+                  <span className="bg-[#E54B4B] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                    {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+                  </span>
+                )}
+              </>
+            )}
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              className="p-2 rounded-lg text-[#8B7355] hover:text-[#E54B4B] hover:bg-[#F0E6D3] transition-colors"
+            >
+              {menuOpen ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {menuOpen && (
+          <div className="sm:hidden border-t border-[#F0E6D3] bg-cream px-4 py-3 flex flex-col gap-1">
+            {status === "loading" ? null : session ? (
+              <>
+                <p className="text-sm text-[#8B7355] font-semibold px-3 py-1">Hey {session.user?.name?.split(' ')[0]} 👋</p>
+                <MobileNavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</MobileNavLink>
+                <MobileNavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</MobileNavLink>
+                <MobileNavLink href="/guide" active={pathname === "/guide"}>Guide</MobileNavLink>
+                {(session.user as { isAdmin?: boolean })?.isAdmin && (
+                  <MobileNavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</MobileNavLink>
+                )}
+                <MobileNavLink href="/trophies" active={pathname === "/trophies"}>
+                  🏆 Trophies{hasPendingAchievements ? " •" : ""}
+                </MobileNavLink>
+                <MobileNavLink href="/friends" active={pathname === "/friends"}>
+                  👥 Friends{pendingRequestCount > 0 ? ` (${pendingRequestCount})` : ""}
+                </MobileNavLink>
+                <div className="pt-1 mt-1 border-t border-[#F0E6D3]">
+                  <button
+                    onClick={() => signOut()}
+                    className="w-full text-left px-3 py-2 text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors font-medium"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <MobileNavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</MobileNavLink>
+                <MobileNavLink href="/guide" active={pathname === "/guide"}>Guide</MobileNavLink>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => { setModalMode("login"); setShowAuth(true); setMenuOpen(false); }}
+                    className="flex-1 py-2 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={() => { setModalMode("signup"); setShowAuth(true); setMenuOpen(false); }}
+                    className="flex-1 py-2 bg-[#E54B4B] text-white rounded-full text-sm font-bold hover:bg-[#D43D3D] transition-colors shadow-sm"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Email verification banner */}
@@ -200,6 +295,21 @@ function NavLink({ href, active, children, title }: { href: string; active: bool
         active
           ? "bg-[#E54B4B]/10 text-[#E54B4B]"
           : "text-[#8B7355] hover:text-[#E54B4B]"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MobileNavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={`block px-3 py-2 rounded-xl text-sm font-bold transition-colors ${
+        active
+          ? "bg-[#E54B4B]/10 text-[#E54B4B]"
+          : "text-[#8B7355] hover:text-[#E54B4B] hover:bg-[#F0E6D3]"
       }`}
     >
       {children}

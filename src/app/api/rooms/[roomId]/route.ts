@@ -8,7 +8,12 @@ import {
   pauseRoomTimer,
   resetRoomTimer,
   skipPhase,
+  reclaimHost,
   toRoomResponse,
+  transferHost,
+  addCoHost,
+  removeCoHost,
+  isPrivileged,
 } from "@/lib/rooms";
 import { auth } from "@/lib/auth";
 import { checkAchievements } from "@/lib/achievement-checker";
@@ -18,7 +23,7 @@ export async function GET(
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await params;
-  const room = getRoom(roomId);
+  const room = await getRoom(roomId);
   if (!room) {
     return NextResponse.json({ error: "Room not found" }, { status: 404 });
   }
@@ -34,15 +39,21 @@ export async function POST(
   const body = await request.json();
   const { action, userId, userName } = body;
 
-  const ADMIN_ACTIONS = ["start", "pause", "reset", "skip", "end"];
+  const HOST_ONLY_ACTIONS = ["end", "transfer-host", "add-cohost", "remove-cohost"];
+  const PRIVILEGED_ACTIONS = ["start", "pause", "reset", "skip"];
 
-  // For admin actions, verify the user is the host
-  if (ADMIN_ACTIONS.includes(action)) {
-    const room = getRoom(roomId);
+  if (HOST_ONLY_ACTIONS.includes(action) || PRIVILEGED_ACTIONS.includes(action)) {
+    const room = await getRoom(roomId);
     if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
-    if (userId !== room.hostId) {
+    if (HOST_ONLY_ACTIONS.includes(action) && userId !== room.hostId) {
       return NextResponse.json(
-        { error: "Only the room admin can control the timer" },
+        { error: "Only the room host can perform this action" },
+        { status: 403 }
+      );
+    }
+    if (PRIVILEGED_ACTIONS.includes(action) && !isPrivileged(room, userId)) {
+      return NextResponse.json(
+        { error: "Only the host or co-host can control the timer" },
         { status: 403 }
       );
     }
@@ -50,7 +61,7 @@ export async function POST(
 
   switch (action) {
     case "join": {
-      const result = joinRoomChecked(roomId, userId, userName || "Anonymous");
+      const result = await joinRoomChecked(roomId, userId, userName || "Anonymous");
       if (result === undefined) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       if (result === "full") return NextResponse.json({ error: "This room is full (max 20 participants)" }, { status: 403 });
       // Check achievements for room join (non-blocking)
@@ -69,32 +80,55 @@ export async function POST(
       return NextResponse.json(toRoomResponse(result));
     }
     case "leave": {
-      leaveRoom(roomId, userId);
+      await leaveRoom(roomId, userId);
       return NextResponse.json({ success: true });
     }
     case "start": {
-      const room = startRoomTimer(roomId);
+      const room = await startRoomTimer(roomId);
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }
     case "pause": {
-      const room = pauseRoomTimer(roomId);
+      const room = await pauseRoomTimer(roomId);
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }
     case "reset": {
-      const room = resetRoomTimer(roomId);
+      const room = await resetRoomTimer(roomId);
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }
     case "skip": {
-      const room = skipPhase(roomId);
+      const room = await skipPhase(roomId);
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }
     case "end": {
-      endRoom(roomId);
+      await endRoom(roomId);
       return NextResponse.json({ success: true });
+    }
+    case "reclaim-host": {
+      const room = await reclaimHost(roomId, userId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
+    }
+    case "transfer-host": {
+      const { targetUserId } = body;
+      const room = await transferHost(roomId, userId, targetUserId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
+    }
+    case "add-cohost": {
+      const { targetUserId } = body;
+      const room = await addCoHost(roomId, userId, targetUserId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
+    }
+    case "remove-cohost": {
+      const { targetUserId } = body;
+      const room = await removeCoHost(roomId, userId, targetUserId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
     }
     default:
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });

@@ -29,6 +29,20 @@
       "when": 1740000000000,
       "tag": "0003_trophy_case",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1773085608328,
+      "tag": "0004_lazy_karma",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773200000000,
+      "tag": "0005_co_hosts",
+      "breakpoints": true
     }
   ]
 }

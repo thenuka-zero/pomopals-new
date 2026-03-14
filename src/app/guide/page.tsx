@@ -78,6 +78,7 @@ const TOC_ITEMS = [
   { id: "analytics", emoji: "📊", label: "Analytics" },
   { id: "friends", emoji: "👫", label: "Friends" },
   { id: "trophies", emoji: "🏆", label: "Trophies & Achievements" },
+  { id: "settings", emoji: "⚙️", label: "Settings" },
   { id: "tips", emoji: "✨", label: "Tips & Shortcuts" },
 ];
 
@@ -324,6 +325,64 @@ export default function GuidePage() {
               <p className="text-sm">
                 A toast notification pops up whenever you unlock something new — keep an eye on the bottom of the screen after completing a session.
               </p>
+            </Section>
+
+            <Divider />
+
+            {/* Settings */}
+            <Section id="settings" emoji="⚙️" title="Settings">
+              <p>
+                PomoPals has two places to configure things — a <strong className="text-[#3D2C2C]">timer settings modal</strong> (accessed via the gear icon on the timer) and a <strong className="text-[#3D2C2C]">Settings page</strong> for account-level preferences.
+              </p>
+
+              <p className="font-semibold text-[#3D2C2C] mt-2">Timer settings</p>
+              <p className="text-sm mb-2">Open by clicking the gear icon inside the expanded timer panel (click ∨ first).</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-[#FDF6EC]">
+                      <th className="text-left px-3 py-2 rounded-tl-lg text-[#3D2C2C] font-bold">Setting</th>
+                      <th className="text-left px-3 py-2 text-[#3D2C2C] font-bold">Default</th>
+                      <th className="text-left px-3 py-2 rounded-tr-lg text-[#3D2C2C] font-bold">What it does</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ["Focus (min)", "25", "Length of each work session"],
+                      ["Short break (min)", "5", "Length of breaks between work sessions"],
+                      ["Long break (min)", "15", "Length of the longer break every N sessions"],
+                      ["Long break after", "4", "How many work sessions before a long break"],
+                      ["Sound", "None", "Plays an alert when a phase ends — choose Bell, Digital beep, or None"],
+                      ["Auto-start next phase", "Off", "Automatically begins the next phase when the current one ends"],
+                    ].map(([name, def, desc]) => (
+                      <tr key={name} className="border-t border-[#F0E6D3]">
+                        <td className="px-3 py-2 font-semibold text-[#3D2C2C] align-top whitespace-nowrap">{name}</td>
+                        <td className="px-3 py-2 text-[#8B7355] align-top whitespace-nowrap">{def}</td>
+                        <td className="px-3 py-2 text-[#5C4033]">{desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Callout emoji="⚠️">
+                Timer duration changes apply the next time the timer is idle. Changes made while the timer is running or paused take effect after the current session ends.
+              </Callout>
+
+              <p className="font-semibold text-[#3D2C2C] mt-2">Account settings</p>
+              <p className="text-sm mb-2">
+                Visit <Link href="/settings" className="text-[#E54B4B] font-semibold hover:underline">Settings</Link> from any page to manage account-level preferences.
+              </p>
+              <ul className="space-y-2 text-sm pl-1">
+                {[
+                  ["Share sessions with friends", "When on, your friends can see when you're focusing and what room you're in. Turn off to go invisible."],
+                  ["Intentions before each Pomodoro", "When on, a text field appears before each work session so you can set a focus intention. Turn off to hide it entirely."],
+                ].map(([name, desc]) => (
+                  <li key={name as string} className="flex gap-2">
+                    <span className="text-[#E54B4B] font-bold flex-shrink-0">—</span>
+                    <span><strong className="text-[#3D2C2C]">{name as string}</strong> — {desc as string}</span>
+                  </li>
+                ))}
+              </ul>
             </Section>
 
             <Divider />

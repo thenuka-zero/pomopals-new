@@ -20,10 +20,24 @@ export default function Dashboard({ todayData, allData }: DashboardProps) {
     roomName: string;
     hostName: string;
   } | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+
+  const handleDiscard = async (sessionId: string) => {
+    setDeletedIds((prev) => new Set([...prev, sessionId]));
+    try {
+      const res = await fetch(`/api/analytics/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeletedIds((prev) => { const next = new Set(prev); next.delete(sessionId); return next; });
+      }
+    } catch {
+      setDeletedIds((prev) => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
 
   // Collect all sessions across all days, newest first
   const allSessions = allData
     .flatMap((d) => d.sessions)
+    .filter((s) => !deletedIds.has(s.id))
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
 
   // Group sessions by date
@@ -96,7 +110,7 @@ export default function Dashboard({ todayData, allData }: DashboardProps) {
                 </h3>
                 <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl overflow-hidden divide-y divide-[#F0E6D3]">
                   {sessions.map((session) => (
-                    <SessionRow key={session.id} session={session} />
+                    <SessionRow key={session.id} session={session} onDiscard={handleDiscard} />
                   ))}
                 </div>
               </div>
@@ -108,14 +122,15 @@ export default function Dashboard({ todayData, allData }: DashboardProps) {
   );
 }
 
-function SessionRow({ session }: { session: PomodoroSession }) {
+function SessionRow({ session, onDiscard }: { session: PomodoroSession; onDiscard: (id: string) => void }) {
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const actualMin = Math.round(session.actualDuration / 60);
   const plannedMin = Math.round(session.plannedDuration / 60);
   const timeStr = format(parseISO(session.startedAt), "h:mm a");
   const barId = `db-${useId().replace(/:/g, "")}`;
 
   return (
-    <div className="flex items-center justify-between py-3 px-4">
+    <div className="flex items-center justify-between py-3 px-4 group">
       <div className="flex items-center gap-3">
         <div
           className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
@@ -137,6 +152,35 @@ function SessionRow({ session }: { session: PomodoroSession }) {
         <span className="text-xs text-[#8B7355] w-10 text-right font-semibold">
           {session.completionPercentage}%
         </span>
+        {confirmDiscard ? (
+          <div className="flex items-center gap-1 ml-1">
+            <button
+              onClick={() => onDiscard(session.id)}
+              className="text-[10px] font-bold text-white bg-[#E54B4B] px-2 py-0.5 rounded-full hover:bg-[#D43D3D] transition-colors"
+            >
+              Discard
+            </button>
+            <button
+              onClick={() => setConfirmDiscard(false)}
+              className="text-[10px] font-bold text-[#8B7355] hover:text-[#3D2C2C] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDiscard(true)}
+            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-[#C0A880] hover:text-[#E54B4B]"
+            title="Discard this session"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
   // Non-blocking: populate roomCoSessions if this session was in a room
   if (enrichedSession.roomId) {
     try {
-      const room = getRoom(enrichedSession.roomId);
+      const room = await getRoom(enrichedSession.roomId);
       if (room) {
         const coParticipants = room.participants.filter((p) => p.id !== session.user.id);
         for (const participant of coParticipants) {

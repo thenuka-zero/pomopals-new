@@ -77,6 +77,7 @@ export interface Room {
   settings: TimerSettings;
   timerState: RoomTimerState;
   participants: Participant[];
+  coHostIds: string[];
 }
 
 /** Shape returned to clients -- includes computed timeRemaining for backward compat */
@@ -95,6 +96,7 @@ export interface RoomResponse {
     pomodoroCount: number;
   };
   participants: Participant[];
+  coHostIds: string[];
 }
 
 export interface Participant {

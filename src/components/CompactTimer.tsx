@@ -36,6 +36,7 @@ export default function CompactTimer() {
     resume,
     reset,
     skip,
+    completeEarly,
     tick,
     lastTransitionType,
     hydratedAsExpired,
@@ -379,6 +380,10 @@ export default function CompactTimer() {
     }
   }, [status, handleStart, pause, resume, requestPermission]);
 
+  const handleEndEarly = useCallback(() => {
+    completeEarly();
+  }, [completeEarly]);
+
   const userId =
     session?.user?.id || "guest-" + Math.random().toString(36).slice(2);
   const userName = session?.user?.name || "Guest";
@@ -387,8 +392,8 @@ export default function CompactTimer() {
   const showIntentionIcon =
     session?.user && intentionsEnabled && status !== "running" && phase === "work";
 
-  // Show active intention display when running or paused with an intention
-  const showActiveIntention = (status === "running" || status === "paused") && currentIntention;
+  // Show active intention display whenever an intention is set and the input isn't open
+  const showActiveIntention = !!currentIntention && !showIntentionInput;
 
   const charCount = currentIntention.length;
   const isOverLimit = charCount > 280;
@@ -629,17 +634,29 @@ export default function CompactTimer() {
                   </svg>
                 </button>
 
-                {/* Reset — visible when running or paused */}
-                {status !== "idle" && (
+                {/* Reset — always visible */}
+                <button
+                  onClick={handleReset}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0] transition-all"
+                  title="Reset timer"
+                  aria-label="Reset"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                </button>
+
+                {/* Finish Early — visible when running a work phase */}
+                {status === "running" && phase === "work" && (
                   <button
-                    onClick={handleReset}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0] transition-all"
-                    title="Reset timer"
-                    aria-label="Reset"
+                    onClick={handleEndEarly}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#A08060] hover:text-[#6EAE3E] hover:bg-[#F0FDE4] transition-all"
+                    title="Finish early & reflect"
+                    aria-label="Finish early"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </button>
                 )}

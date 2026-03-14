@@ -32,6 +32,7 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
     autoStartBreaks: true,
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [timerInitMode, setTimerInitMode] = useState<"continue" | "fresh">("continue");
 
   const timerActive = timerState.status !== "idle";
@@ -45,6 +46,7 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
     try {
       const res = await fetch("/api/rooms", {
@@ -53,14 +55,20 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
         body: JSON.stringify({
           hostId: userId,
           hostName: userName,
-          name: name || "Pomodoro Room",
+          name: name.trim() || "Pomodoro Room",
           settings: timerActive && timerInitMode === "continue" ? timerState.settings : settings,
           ...(timerActive && timerInitMode === "continue" ? { timerState } : {}),
         }),
       });
-      const room = await res.json();
-      router.push(`/room/${room.id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to create room. Please try again.");
+        setLoading(false);
+        return;
+      }
+      router.push(`/room/${data.id}`);
     } catch {
+      setError("Failed to create room. Please try again.");
       setLoading(false);
     }
   };
@@ -79,7 +87,6 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-[#FDF6EC] border border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] focus:outline-none focus:border-[#E54B4B] transition-colors"
               placeholder="e.g. Study Session"
-              required
             />
           </div>
 
@@ -153,6 +160,9 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
             </div>
           )}
 
+          {error && (
+            <p className="text-xs text-[#E54B4B] font-semibold text-center">{error}</p>
+          )}
           <button
             type="submit"
             disabled={loading}

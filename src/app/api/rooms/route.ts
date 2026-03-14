@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const room = createRoom(hostId, hostName || session.user.name || "Anonymous", name, settings, timerState);
+  const room = await createRoom(hostId, hostName || session.user.name || "Anonymous", name, settings, timerState);
 
   // Check achievements for room creation (non-blocking)
   checkAchievements({

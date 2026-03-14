@@ -8,7 +8,7 @@ export default function IntentionInput() {
   const setCurrentIntention = useTimerStore((s) => s.setCurrentIntention);
   const status = useTimerStore((s) => s.status);
   const phase = useTimerStore((s) => s.phase);
-  const [confirmed, setConfirmed] = useState(false);
+  const [showInput, setShowInput] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // When running, show read-only active intention
@@ -25,27 +25,62 @@ export default function IntentionInput() {
   if (status === "running") return null;
 
   // Only show in idle/paused during work phase
-  const showInput =
+  const canShow =
     (status === "idle" || status === "paused") &&
     (phase === "work" || status === "idle");
 
-  if (!showInput) return null;
+  if (!canShow) return null;
 
   const charCount = currentIntention.length;
   const showCounter = charCount > 200;
   const isOverLimit = charCount > 280;
-
-  const handleConfirm = () => {
-    if (!currentIntention.trim()) return;
-    setConfirmed(true);
-    inputRef.current?.blur();
-  };
 
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
   };
 
+  const handleConfirm = () => {
+    if (!currentIntention.trim()) return;
+    setShowInput(false);
+  };
+
+  const PencilIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+
+  // Closed state — show pencil icon (+ intention preview if one is set)
+  if (!showInput) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            setShowInput(true);
+            setTimeout(() => inputRef.current?.focus(), 0);
+          }}
+          title="Set intention"
+          aria-label="Set intention"
+          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+            currentIntention.trim()
+              ? "bg-green-100 text-green-700 border border-green-200 hover:bg-green-200"
+              : "bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20"
+          }`}
+        >
+          <PencilIcon />
+        </button>
+        {currentIntention.trim() && (
+          <span className="text-sm text-[#5C4033] italic break-words line-clamp-2">
+            {currentIntention}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Open state — show textarea + confirm button
   return (
     <div className="w-full">
       <div className="flex gap-2 items-start">
@@ -57,7 +92,6 @@ export default function IntentionInput() {
             const val = e.target.value.replace(/\n/g, "");
             if (val.length <= 280) {
               setCurrentIntention(val);
-              setConfirmed(false);
               autoResize(e.target);
             }
           }}
@@ -66,6 +100,9 @@ export default function IntentionInput() {
             if (e.key === "Enter") {
               e.preventDefault();
               handleConfirm();
+            }
+            if (e.key === "Escape") {
+              setShowInput(false);
             }
           }}
           placeholder="What will you focus on?"
@@ -78,23 +115,15 @@ export default function IntentionInput() {
             transition-colors resize-none overflow-hidden
           `}
         />
-        {currentIntention.trim() && (
-          <button
-            onClick={handleConfirm}
-            title="Set intention"
-            aria-label="Set intention"
-            className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-              confirmed
-                ? "bg-green-100 text-green-700 border border-green-200"
-                : "bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20"
-            }`}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-          </button>
-        )}
+        <button
+          onClick={handleConfirm}
+          disabled={!currentIntention.trim()}
+          title="Confirm intention"
+          aria-label="Confirm intention"
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <PencilIcon />
+        </button>
       </div>
       {showCounter && (
         <div className="text-right mt-1">

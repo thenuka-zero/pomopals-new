@@ -128,14 +128,15 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
 
         // ── Streak computation ────────────────────────────────────────────
         const streak = await computeStreak(userId);
-        trackProgress('habit-forming', streak);
-        trackProgress('week-in-the-zone', streak);
-        trackProgress('unbreakable', streak);
-        trackProgress('centurion-streak', streak);
         if (streak >= 3) await unlock('habit-forming');
         if (streak >= 7) await unlock('week-in-the-zone');
         if (streak >= 30) await unlock('unbreakable');
         if (streak >= 100) await unlock('centurion-streak');
+        // Cap progress at target once unlocked so it never shows e.g. "2/3 unlocked"
+        trackProgress('habit-forming', unlocked.has('habit-forming') ? 3 : streak);
+        trackProgress('week-in-the-zone', unlocked.has('week-in-the-zone') ? 7 : streak);
+        trackProgress('unbreakable', unlocked.has('unbreakable') ? 30 : streak);
+        trackProgress('centurion-streak', unlocked.has('centurion-streak') ? 100 : streak);
 
         // ── Perfect Week ──────────────────────────────────────────────────
         if (!unlocked.has('perfect-week')) {

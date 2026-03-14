@@ -52,6 +52,7 @@ interface TimerState {
   resume: () => void;
   reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
   skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
+  completeEarly: () => void;
   tick: () => void;
 
   // Intentions actions
@@ -72,7 +73,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakDuration: 15,
   longBreakInterval: 4,
   notificationSound: "none",
-  autoStartBreaks: true,
+  autoStartBreaks: false,
 };
 
 function getDurationForPhase(phase: TimerPhase, settings: TimerSettings): number {
@@ -211,6 +212,39 @@ export const useTimerStore = create<TimerState>()(
           set({ lastTransitionType: "skipped", isRemoteTransition: false });
           transitionPhase(state, set);
         }
+      },
+
+      completeEarly: () => {
+        const state = get();
+        if (state.phase !== "work") return;
+        let completedSessionId: string | null = null;
+        if (state.currentSessionStart) {
+          const totalDuration = getDurationForPhase(state.phase, state.settings) * 60;
+          const elapsed = totalDuration - state.timeRemaining;
+          if (elapsed > 0) {
+            const session: PomodoroSession = {
+              id: uuidv4(),
+              userId: "",
+              startedAt: new Date(state.currentSessionStart).toISOString(),
+              endedAt: new Date().toISOString(),
+              phase: state.phase,
+              plannedDuration: totalDuration,
+              actualDuration: elapsed,
+              completed: false,
+              completionPercentage: Math.round((elapsed / totalDuration) * 100),
+              date: new Date().toISOString().split("T")[0],
+            };
+            completedSessionId = session.id;
+            set((s) => ({ sessions: [...s.sessions, session] }));
+          }
+        }
+        set({
+          lastTransitionType: "completed",
+          isRemoteTransition: false,
+          pendingReflection: true,
+          lastCompletedSessionId: completedSessionId,
+        });
+        transitionPhase(state, set);
       },
 
       tick: () => {

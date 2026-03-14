@@ -35,7 +35,7 @@ export async function POST(
   const { roomId } = await params;
 
   // Check room exists
-  const room = getRoom(roomId);
+  const room = await getRoom(roomId);
   if (!room) {
     return NextResponse.json({ error: "Room not found" }, { status: 400 });
   }
@@ -155,7 +155,7 @@ export async function GET(
   const now = new Date().toISOString();
 
   // Check room exists
-  const room = getRoom(roomId);
+  const room = await getRoom(roomId);
   if (!room) {
     // Mark all pending requests for this room as expired
     await db

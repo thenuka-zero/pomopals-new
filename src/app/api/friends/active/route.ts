@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, friendships, userPresence } from "@/lib/db/schema";
-import { and, eq, lt, or } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { FriendPresence, TimerPhase } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,60 +45,52 @@ export async function GET(_request: NextRequest) {
     f.userIdA === myId ? f.userIdB : f.userIdA
   );
 
-  // Lazily clean up stale presence rows for friends
-  // We update isActive = 0 for expired rows
-  for (const friendId of friendIds) {
-    await db
-      .update(userPresence)
-      .set({ isActive: 0 })
-      .where(
-        and(
-          eq(userPresence.userId, friendId),
-          lt(userPresence.expiresAt, now)
-        )
-      );
-  }
-
-  // Fetch active, broadcasting, non-expired, work-phase presence rows for friends
-  const activeFriends: FriendPresence[] = [];
-
-  for (const friendId of friendIds) {
-    const [presence] = await db
-      .select({
-        userId: userPresence.userId,
-        isActive: userPresence.isActive,
-        roomId: userPresence.roomId,
-        roomName: userPresence.roomName,
-        phase: userPresence.phase,
-        startedAt: userPresence.startedAt,
-        broadcastEnabled: userPresence.broadcastEnabled,
-        expiresAt: userPresence.expiresAt,
-        name: users.name,
-      })
-      .from(userPresence)
-      .innerJoin(users, eq(userPresence.userId, users.id))
-      .where(
-        and(
-          eq(userPresence.userId, friendId),
-          eq(userPresence.isActive, 1),
-          eq(userPresence.broadcastEnabled, 1),
-          eq(userPresence.phase, "work")
-        )
+  // Batch-clean up stale presence rows for all friends in one query
+  await db
+    .update(userPresence)
+    .set({ isActive: 0 })
+    .where(
+      and(
+        inArray(userPresence.userId, friendIds),
+        lt(userPresence.expiresAt, now)
       )
-      .limit(1);
+    );
 
-    if (presence && presence.expiresAt > now) {
-      activeFriends.push({
-        userId: presence.userId,
-        name: presence.name,
-        isActive: presence.isActive === 1,
-        roomId: presence.roomId ?? null,
-        roomName: presence.roomName ?? null,
-        phase: (presence.phase as TimerPhase) ?? null,
-        startedAt: presence.startedAt ?? null,
-      });
-    }
-  }
+  // Fetch active, broadcasting, non-expired, work-phase presence rows for all friends in one query
+  const presenceRows = await db
+    .select({
+      userId: userPresence.userId,
+      isActive: userPresence.isActive,
+      roomId: userPresence.roomId,
+      roomName: userPresence.roomName,
+      phase: userPresence.phase,
+      startedAt: userPresence.startedAt,
+      broadcastEnabled: userPresence.broadcastEnabled,
+      expiresAt: userPresence.expiresAt,
+      name: users.name,
+    })
+    .from(userPresence)
+    .innerJoin(users, eq(userPresence.userId, users.id))
+    .where(
+      and(
+        inArray(userPresence.userId, friendIds),
+        eq(userPresence.isActive, 1),
+        eq(userPresence.broadcastEnabled, 1),
+        eq(userPresence.phase, "work")
+      )
+    );
+
+  const activeFriends: FriendPresence[] = presenceRows
+    .filter((presence) => presence.expiresAt > now)
+    .map((presence) => ({
+      userId: presence.userId,
+      name: presence.name,
+      isActive: presence.isActive === 1,
+      roomId: presence.roomId ?? null,
+      roomName: presence.roomName ?? null,
+      phase: (presence.phase as TimerPhase) ?? null,
+      startedAt: presence.startedAt ?? null,
+    }));
 
   return NextResponse.json({ activeFriends });
 }

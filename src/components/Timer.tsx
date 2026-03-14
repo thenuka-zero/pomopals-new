@@ -10,6 +10,8 @@ interface TimerProps {
   onSkip?: () => void;
   isRoomMode?: boolean;
   isReadOnly?: boolean;
+  /** Rendered next to the Start button when status is idle (room mode intention input) */
+  controlSlot?: React.ReactNode;
 }
 
 function playStartSound() {
@@ -51,7 +53,7 @@ function playEndSound() {
   } catch { /* AudioContext unavailable */ }
 }
 
-export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, isReadOnly }: TimerProps) {
+export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, isReadOnly, controlSlot }: TimerProps) {
   const { phase, status, timeRemaining, pomodoroCount, settings, lastTransitionType, start, pause, resume, reset, skip, tick } =
     useTimerStore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -168,7 +170,8 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
 
       {/* Controls */}
       {!isReadOnly && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {status === "idle" && controlSlot}
           {status === "idle" && (
             <button onClick={handleStart} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all">
               Start
@@ -180,15 +183,13 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
             </button>
           )}
           {status === "paused" && (
-            <>
-              <button onClick={handleResume} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] transition-all">
-                Resume
-              </button>
-              <button onClick={handleReset} className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
-                Reset
-              </button>
-            </>
+            <button onClick={handleResume} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] transition-all">
+              Resume
+            </button>
           )}
+          <button onClick={handleReset} className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
+            Reset
+          </button>
           <button onClick={handleSkip} className="px-4 py-3 text-[#A08060] hover:text-[#E54B4B] transition-colors" title="Skip to next phase">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
               <path d="M5 5v14l11-7z" /><path d="M19 5v14h-2V5h2z" />

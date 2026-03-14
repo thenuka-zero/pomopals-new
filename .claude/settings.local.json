@@ -28,7 +28,8 @@
       "Bash(mdfind -name \"auth.json\" 2>/dev/null | grep -i vercel | head -5)",
       "Bash(vercel --prod --force 2>&1)",
       "Bash(vercel --prod --force --yes 2>&1)",
-      "Bash(source ~/.zshrc && echo \"Done. CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\")"
+      "Bash(source ~/.zshrc && echo \"Done. CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\")",
+      "Bash(cd /Users/thenukakarunaratne/pomopals-new && npx tsc --noEmit 2>&1 | head -40)"
     ]
   }
 }

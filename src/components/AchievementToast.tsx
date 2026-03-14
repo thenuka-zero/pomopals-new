@@ -40,10 +40,6 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
   useEffect(() => {
     // Animate in
     requestAnimationFrame(() => setVisible(true));
-
-    // Auto-dismiss after 6 seconds
-    const timer = setTimeout(() => handleDismiss(), 6000);
-    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,12 +101,6 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
         </Link>
       </div>
 
-      {/* Progress bar (auto-dismiss indicator) */}
-      <div className="h-0.5 bg-[#F0E6D3]">
-        <div
-          className="h-full bg-[#E54B4B] origin-left animate-shrink-bar"
-        />
-      </div>
     </div>
   );
 }

@@ -32,12 +32,13 @@ function TierBadge({ tier }: { tier: AchievementTier }) {
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
 function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; target: number; color?: string }) {
-  const pct = Math.min(100, Math.round((current / target) * 100));
+  const displayCurrent = Math.min(current, target);
+  const pct = Math.min(100, Math.round((displayCurrent / target) * 100));
   const id = `pb-${useId().replace(/:/g, "")}`;
   return (
     <div>
       <div className="flex items-center justify-between text-[10px] text-brown-muted mb-1">
-        <span>{current.toLocaleString()} / {target.toLocaleString()}</span>
+        <span>{displayCurrent.toLocaleString()} / {target.toLocaleString()}</span>
         <span>{pct}%</span>
       </div>
       <div className="w-full h-1.5 bg-sand rounded-full overflow-hidden">
@@ -107,7 +108,7 @@ function AchievementCard({ achievement, isNew }: { achievement: AchievementWithS
         {/* Progress bar (count achievements) */}
         {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && (
           <ProgressBar
-            current={achievement.currentProgress ?? 0}
+            current={achievement.unlocked ? achievement.progressTarget : (achievement.currentProgress ?? 0)}
             target={achievement.progressTarget}
             color={achievement.unlocked ? "#6EAE3E" : "#E54B4B"}
           />

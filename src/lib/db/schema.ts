@@ -141,6 +141,22 @@ export const intentions = sqliteTable("intentions", {
   index("idx_intentions_user_date").on(t.userId, t.date),
 ]);
 
+// ─── Rooms ────────────────────────────────────────────────────────────────────
+
+export const rooms = sqliteTable("rooms", {
+  id:             text("id").primaryKey(),
+  name:           text("name").notNull(),
+  hostId:         text("host_id").notNull(),
+  hostName:       text("host_name").notNull(),
+  createdAt:      text("created_at").notNull(),
+  lastActivityAt: text("last_activity_at").notNull(),
+  settings:       text("settings").notNull(),     // JSON
+  timerState:     text("timer_state").notNull(),  // JSON
+  participants:   text("participants").notNull(),  // JSON
+  expiresAt:      text("expires_at").notNull(),
+  coHostIds:      text("co_host_ids").notNull().default("[]"),
+});
+
 // ─── Achievements ─────────────────────────────────────────────────────────────
 
 export const userAchievements = sqliteTable(

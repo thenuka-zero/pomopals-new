@@ -19,12 +19,14 @@ export default function IntentionReflectionModal({
   const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
   const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
 
+  const [selectedStatus, setSelectedStatus] = useState<"completed" | "not_completed" | null>(null);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (status: "completed" | "not_completed") => {
+  const handleSubmit = async () => {
+    if (!selectedStatus) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -32,7 +34,7 @@ export default function IntentionReflectionModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status,
+          status: selectedStatus,
           sessionId,
           note: note.trim() || undefined,
           reflectedAt: new Date().toISOString(),
@@ -94,20 +96,28 @@ export default function IntentionReflectionModal({
               </p>
             </div>
 
-            {/* Status buttons */}
+            {/* Status buttons — toggle selection */}
             <div className="flex gap-3">
               <button
-                onClick={() => handleSubmit("completed")}
+                onClick={() => setSelectedStatus("completed")}
                 disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  selectedStatus === "completed"
+                    ? "bg-green-100 border-green-400 text-green-800 ring-2 ring-green-300"
+                    : "bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                }`}
               >
                 <span>✅</span>
                 <span>Completed</span>
               </button>
               <button
-                onClick={() => handleSubmit("not_completed")}
+                onClick={() => setSelectedStatus("not_completed")}
                 disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#F0E6D3] hover:bg-[#E54B4B]/10 border border-[#3D2C2C]/15 text-[#3D2C2C] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  selectedStatus === "not_completed"
+                    ? "bg-[#E54B4B]/15 border-[#E54B4B]/40 text-[#C0392B] ring-2 ring-[#E54B4B]/20"
+                    : "bg-[#F0E6D3] hover:bg-[#E54B4B]/10 border-[#3D2C2C]/15 text-[#3D2C2C]"
+                }`}
               >
                 <span>❌</span>
                 <span>Not completed</span>
@@ -143,6 +153,15 @@ export default function IntentionReflectionModal({
                 {error}
               </p>
             )}
+
+            {/* Submit */}
+            <button
+              onClick={handleSubmit}
+              disabled={!selectedStatus || submitting}
+              className="w-full py-3 rounded-xl bg-[#E54B4B] text-white font-semibold text-sm hover:bg-[#D43D3D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Saving..." : "Submit reflection"}
+            </button>
 
             {/* Skip link */}
             <div className="text-center">

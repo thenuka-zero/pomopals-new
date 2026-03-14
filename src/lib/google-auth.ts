@@ -6,15 +6,15 @@
 import { google } from "googleapis";
 
 export function getGoogleAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
 
   if (!email || !rawKey) {
     return null;
   }
 
-  // Private keys stored in env vars have literal \n — replace with actual newlines
-  const key = rawKey.replace(/\\n/g, "\n");
+  // Private key is stored as base64 to avoid newline mangling in Vercel env vars
+  const key = Buffer.from(rawKey, "base64").toString("utf8");
 
   return new google.auth.JWT({
     email,

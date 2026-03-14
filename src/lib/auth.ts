@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import Google from "next-auth/providers/google";
+import { scrypt, randomBytes, timingSafeEqual, randomUUID } from "crypto";
 import { promisify } from "util";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
@@ -22,6 +23,7 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Compare a plain-text password against a stored hash.
  * Uses timingSafeEqual to prevent timing attacks.
+ * Returns false for OAuth users (empty passwordHash).
  */
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const [salt, hash] = storedHash.split(":");
@@ -43,6 +45,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
   trustHost: true,
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -80,14 +86,70 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/",
   },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        const email = user.email?.trim()?.toLowerCase();
+        if (!email) return false;
+
+        const now = new Date().toISOString();
+        const existing = await db.query.users.findFirst({
+          where: eq(users.email, email),
+        });
+
+        let dbUserId: string;
+        if (!existing) {
+          // New Google user — create account (emailVerified: true, no password)
+          dbUserId = randomUUID();
+          await db.insert(users).values({
+            id: dbUserId,
+            name: user.name ?? email.split("@")[0],
+            email,
+            passwordHash: "", // OAuth users have no password
+            emailVerified: true,
+            createdAt: now,
+            updatedAt: now,
+          });
+        } else {
+          dbUserId = existing.id;
+          // Mark existing account as verified if not already (Google verifies emails)
+          if (!existing.emailVerified) {
+            await db.update(users)
+              .set({ emailVerified: true, updatedAt: now })
+              .where(eq(users.id, existing.id));
+          }
+        }
+
+        checkAchievements({ event: "login", userId: dbUserId }).catch(() => {});
+        return true;
+      }
+
+      // Credentials provider
       if (user?.id) {
-        checkAchievements({ event: 'login', userId: user.id as string }).catch(() => {});
+        checkAchievements({ event: "login", userId: user.id as string }).catch(() => {});
       }
       return true;
     },
-    async jwt({ token, user }) {
-      if (user) {
+
+    async jwt({ token, user, account }) {
+      if (user && account) {
+        if (account.provider === "google") {
+          // Resolve our DB user ID via email — user.id here is Google's sub, not ours
+          const email = user.email?.trim()?.toLowerCase();
+          if (email) {
+            const dbUser = await db.query.users.findFirst({
+              where: eq(users.email, email),
+              columns: { id: true, emailVerified: true },
+            });
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.emailVerified = dbUser.emailVerified;
+            }
+          }
+          token.isAdmin = !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL;
+          return token;
+        }
+
+        // Credentials flow
         token.id = user.id as string;
         // Retrieve emailVerified from cache (set during authorize)
         token.emailVerified = emailVerifiedCache.get(user.id as string) ?? false;
@@ -110,6 +172,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       return token;
     },
+
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;

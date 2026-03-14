@@ -1,4 +1,7 @@
 import { Room, RoomResponse, RoomTimerState, TimerPhase, TimerSettings, TimerStatus } from "./types";
+import { db } from "./db/index";
+import { rooms as roomsTable } from "./db/schema";
+import { eq, lt } from "drizzle-orm";
 
 /** Solo timer state sent from the client when creating a room */
 export interface InitialTimerState {
@@ -8,9 +11,6 @@ export interface InitialTimerState {
   pomodoroCount: number;
   settings: TimerSettings;
 }
-
-// In-memory room store
-const rooms: Map<string, Room> = new Map();
 
 export const MAX_PARTICIPANTS = 20;
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -26,14 +26,11 @@ const DEFAULT_SETTINGS: TimerSettings = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function getDurationForPhase(phase: Room["timerState"]["phase"], settings: TimerSettings): number {
+function getDurationForPhase(phase: TimerPhase, settings: TimerSettings): number {
   switch (phase) {
-    case "work":
-      return settings.workDuration * 60;
-    case "shortBreak":
-      return settings.shortBreakDuration * 60;
-    case "longBreak":
-      return settings.longBreakDuration * 60;
+    case "work":       return settings.workDuration * 60;
+    case "shortBreak": return settings.shortBreakDuration * 60;
+    case "longBreak":  return settings.longBreakDuration * 60;
   }
 }
 
@@ -51,10 +48,9 @@ function computeTimeRemaining(ts: RoomTimerState): number {
 function resolvePhaseTransitions(room: Room): void {
   if (room.timerState.status !== "running") return;
 
-  let remaining = computeTimeRemaining(room.timerState);
+  const remaining = computeTimeRemaining(room.timerState);
   if (remaining > 0) return;
 
-  // Phase completed -- transition
   if (room.timerState.phase === "work") {
     room.timerState.pomodoroCount += 1;
     if (room.timerState.pomodoroCount % room.settings.longBreakInterval === 0) {
@@ -72,48 +68,75 @@ function resolvePhaseTransitions(room: Room): void {
   room.timerState.elapsed = 0;
 }
 
-/** Remove rooms that have been inactive for >2 hours */
-function cleanupStaleRooms(): void {
-  const now = Date.now();
-  for (const [id, room] of rooms) {
-    if (now - new Date(room.lastActivityAt).getTime() > INACTIVITY_TIMEOUT_MS) {
-      rooms.delete(id);
-    }
-  }
-}
-
 function touch(room: Room): void {
   room.lastActivityAt = new Date().toISOString();
 }
 
+function rowToRoom(row: typeof roomsTable.$inferSelect): Room {
+  return {
+    id:             row.id,
+    name:           row.name,
+    hostId:         row.hostId,
+    hostName:       row.hostName,
+    createdAt:      row.createdAt,
+    lastActivityAt: row.lastActivityAt,
+    settings:       JSON.parse(row.settings) as TimerSettings,
+    timerState:     JSON.parse(row.timerState) as RoomTimerState,
+    participants:   JSON.parse(row.participants),
+    coHostIds:      JSON.parse(row.coHostIds ?? "[]") as string[],
+  };
+}
+
+async function persistRoom(room: Room): Promise<void> {
+  const expiresAt = new Date(Date.now() + INACTIVITY_TIMEOUT_MS).toISOString();
+  await db.update(roomsTable)
+    .set({
+      name:           room.name,
+      hostId:         room.hostId,
+      hostName:       room.hostName,
+      lastActivityAt: room.lastActivityAt,
+      settings:       JSON.stringify(room.settings),
+      timerState:     JSON.stringify(room.timerState),
+      participants:   JSON.stringify(room.participants),
+      coHostIds:      JSON.stringify(room.coHostIds),
+      expiresAt,
+    })
+    .where(eq(roomsTable.id, room.id));
+}
+
 /** Convert internal Room to the client-facing RoomResponse with computed timeRemaining */
 export function toRoomResponse(room: Room): RoomResponse {
-  // Resolve any pending phase transitions first
   resolvePhaseTransitions(room);
-  touch(room);
 
   return {
-    id: room.id,
-    name: room.name,
-    hostId: room.hostId,
-    hostName: room.hostName,
-    createdAt: room.createdAt,
+    id:             room.id,
+    name:           room.name,
+    hostId:         room.hostId,
+    hostName:       room.hostName,
+    createdAt:      room.createdAt,
     lastActivityAt: room.lastActivityAt,
-    settings: room.settings,
+    settings:       room.settings,
     timerState: {
-      phase: room.timerState.phase,
-      status: room.timerState.status,
+      phase:         room.timerState.phase,
+      status:        room.timerState.status,
       timeRemaining: computeTimeRemaining(room.timerState),
       pomodoroCount: room.timerState.pomodoroCount,
     },
     participants: room.participants,
+    coHostIds:    room.coHostIds,
   };
 }
 
 // ── Public API ───────────────────────────────────────────────────────────
 
-export function createRoom(hostId: string, hostName: string, name: string, settings?: Partial<TimerSettings>, initialTimerState?: InitialTimerState): Room {
-  cleanupStaleRooms();
+export async function createRoom(
+  hostId: string,
+  hostName: string,
+  name: string,
+  settings?: Partial<TimerSettings>,
+  initialTimerState?: InitialTimerState
+): Promise<Room> {
+  cleanupStaleRooms().catch(() => {});
 
   const id = generateRoomCode();
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
@@ -122,26 +145,23 @@ export function createRoom(hostId: string, hostName: string, name: string, setti
   let timerState: RoomTimerState;
 
   if (initialTimerState && initialTimerState.status !== "idle") {
-    // Inherit from the solo timer
     const duration = getDurationForPhase(initialTimerState.phase, mergedSettings);
     const elapsed = duration - initialTimerState.timeRemaining;
-
     timerState = {
-      phase: initialTimerState.phase,
-      status: initialTimerState.status,
+      phase:         initialTimerState.phase,
+      status:        initialTimerState.status,
       duration,
-      startedAt: initialTimerState.status === "running" ? now : null,
-      elapsed: Math.max(0, elapsed),
+      startedAt:     initialTimerState.status === "running" ? now : null,
+      elapsed:       Math.max(0, elapsed),
       pomodoroCount: initialTimerState.pomodoroCount,
     };
   } else {
-    // Fresh idle timer (default behavior)
     timerState = {
-      phase: "work",
-      status: "idle",
-      duration: mergedSettings.workDuration * 60,
-      startedAt: null,
-      elapsed: 0,
+      phase:         "work",
+      status:        "idle",
+      duration:      mergedSettings.workDuration * 60,
+      startedAt:     null,
+      elapsed:       0,
       pomodoroCount: 0,
     };
   }
@@ -151,42 +171,58 @@ export function createRoom(hostId: string, hostName: string, name: string, setti
     name,
     hostId,
     hostName,
-    createdAt: now,
+    createdAt:      now,
     lastActivityAt: now,
-    settings: mergedSettings,
+    settings:       mergedSettings,
     timerState,
-    participants: [{ id: hostId, name: hostName, joinedAt: now }],
+    participants:   [{ id: hostId, name: hostName, joinedAt: now }],
+    coHostIds:      [],
   };
-  rooms.set(id, room);
+
+  const expiresAt = new Date(Date.now() + INACTIVITY_TIMEOUT_MS).toISOString();
+  await db.insert(roomsTable).values({
+    id:             room.id,
+    name:           room.name,
+    hostId:         room.hostId,
+    hostName:       room.hostName,
+    createdAt:      room.createdAt,
+    lastActivityAt: room.lastActivityAt,
+    settings:       JSON.stringify(room.settings),
+    timerState:     JSON.stringify(room.timerState),
+    participants:   JSON.stringify(room.participants),
+    coHostIds:      JSON.stringify([]),
+    expiresAt,
+  });
+
   return room;
 }
 
-export function getRoom(roomId: string): Room | undefined {
-  const room = rooms.get(roomId);
-  if (!room) return undefined;
-  // Lazily resolve phase transitions
+export async function getRoom(roomId: string): Promise<Room | undefined> {
+  const [row] = await db.select().from(roomsTable).where(eq(roomsTable.id, roomId)).limit(1);
+  if (!row) return undefined;
+  const room = rowToRoom(row);
   resolvePhaseTransitions(room);
   return room;
 }
 
-export function joinRoom(roomId: string, userId: string, userName: string): Room | undefined {
-  const room = rooms.get(roomId);
+export async function joinRoom(roomId: string, userId: string, userName: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
   if (!room) return undefined;
 
   if (room.participants.length >= MAX_PARTICIPANTS && !room.participants.find((p) => p.id === userId)) {
-    return undefined; // caller should check and return 403
+    return undefined;
   }
 
   if (!room.participants.find((p) => p.id === userId)) {
     room.participants.push({ id: userId, name: userName, joinedAt: new Date().toISOString() });
   }
   touch(room);
+  await persistRoom(room);
   return room;
 }
 
-/** Returns "full" if room is at max capacity, undefined if room not found */
-export function joinRoomChecked(roomId: string, userId: string, userName: string): Room | "full" | undefined {
-  const room = rooms.get(roomId);
+export async function joinRoomChecked(roomId: string, userId: string, userName: string): Promise<Room | "full" | undefined> {
+  const room = await getRoom(roomId);
   if (!room) return undefined;
 
   if (room.participants.length >= MAX_PARTICIPANTS && !room.participants.find((p) => p.id === userId)) {
@@ -197,22 +233,22 @@ export function joinRoomChecked(roomId: string, userId: string, userName: string
     room.participants.push({ id: userId, name: userName, joinedAt: new Date().toISOString() });
   }
   touch(room);
+  await persistRoom(room);
   return room;
 }
 
-export function leaveRoom(roomId: string, userId: string): void {
-  const room = rooms.get(roomId);
+export async function leaveRoom(roomId: string, userId: string): Promise<void> {
+  const room = await getRoom(roomId);
   if (!room) return;
 
   const wasHost = room.hostId === userId;
   room.participants = room.participants.filter((p) => p.id !== userId);
 
   if (room.participants.length === 0) {
-    rooms.delete(roomId);
+    await db.delete(roomsTable).where(eq(roomsTable.id, roomId));
     return;
   }
 
-  // Admin transfer: if the host left, assign to earliest-joined remaining participant
   if (wasHost && room.participants.length > 0) {
     const newHost = room.participants[0];
     room.hostId = newHost.id;
@@ -220,33 +256,89 @@ export function leaveRoom(roomId: string, userId: string): void {
   }
 
   touch(room);
+  await persistRoom(room);
 }
 
-export function endRoom(roomId: string): void {
-  rooms.delete(roomId);
+export async function endRoom(roomId: string): Promise<void> {
+  await db.delete(roomsTable).where(eq(roomsTable.id, roomId));
 }
 
-export function startRoomTimer(roomId: string): Room | undefined {
-  const room = rooms.get(roomId);
+export async function reclaimHost(roomId: string, userId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
   if (!room) return undefined;
 
-  // Resolve any pending transitions first
-  resolvePhaseTransitions(room);
+  const participant = room.participants.find((p) => p.id === userId);
+  if (!participant) return undefined;
+
+  room.hostId = userId;
+  room.hostName = participant.name;
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
+export async function transferHost(roomId: string, fromUserId: string, toUserId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  if (room.hostId !== fromUserId) return undefined;
+
+  const newHost = room.participants.find((p) => p.id === toUserId);
+  if (!newHost) return undefined;
+
+  room.hostId = toUserId;
+  room.hostName = newHost.name;
+  // Remove new host from co-hosts if they were one
+  room.coHostIds = room.coHostIds.filter((id) => id !== toUserId);
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
+export async function addCoHost(roomId: string, hostUserId: string, targetUserId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  if (room.hostId !== hostUserId) return undefined;
+  if (targetUserId === hostUserId) return undefined;
+  if (!room.participants.find((p) => p.id === targetUserId)) return undefined;
+  if (!room.coHostIds.includes(targetUserId)) {
+    room.coHostIds.push(targetUserId);
+  }
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
+export async function removeCoHost(roomId: string, hostUserId: string, targetUserId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  if (room.hostId !== hostUserId) return undefined;
+  room.coHostIds = room.coHostIds.filter((id) => id !== targetUserId);
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
+export function isPrivileged(room: Room | RoomResponse, userId: string): boolean {
+  return room.hostId === userId || room.coHostIds.includes(userId);
+}
+
+export async function startRoomTimer(roomId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
 
   if (room.timerState.status === "running") return room;
 
   room.timerState.status = "running";
   room.timerState.startedAt = new Date().toISOString();
-  // elapsed stays as-is (could be >0 if resuming from pause)
   touch(room);
+  await persistRoom(room);
   return room;
 }
 
-export function pauseRoomTimer(roomId: string): Room | undefined {
-  const room = rooms.get(roomId);
+export async function pauseRoomTimer(roomId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
   if (!room || room.timerState.status !== "running") return room;
 
-  // Capture elapsed time so far
   if (room.timerState.startedAt) {
     const now = Date.now();
     const started = new Date(room.timerState.startedAt).getTime();
@@ -256,27 +348,29 @@ export function pauseRoomTimer(roomId: string): Room | undefined {
   room.timerState.status = "paused";
   room.timerState.startedAt = null;
   touch(room);
+  await persistRoom(room);
   return room;
 }
 
-export function resetRoomTimer(roomId: string): Room | undefined {
-  const room = rooms.get(roomId);
+export async function resetRoomTimer(roomId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
   if (!room) return undefined;
 
   room.timerState = {
-    phase: "work",
-    status: "idle",
-    duration: room.settings.workDuration * 60,
-    startedAt: null,
-    elapsed: 0,
+    phase:         "work",
+    status:        "idle",
+    duration:      room.settings.workDuration * 60,
+    startedAt:     null,
+    elapsed:       0,
     pomodoroCount: 0,
   };
   touch(room);
+  await persistRoom(room);
   return room;
 }
 
-export function skipPhase(roomId: string): Room | undefined {
-  const room = rooms.get(roomId);
+export async function skipPhase(roomId: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
   if (!room) return undefined;
 
   if (room.timerState.phase === "work") {
@@ -295,7 +389,13 @@ export function skipPhase(roomId: string): Room | undefined {
   room.timerState.startedAt = null;
   room.timerState.elapsed = 0;
   touch(room);
+  await persistRoom(room);
   return room;
+}
+
+async function cleanupStaleRooms(): Promise<void> {
+  const cutoff = new Date(Date.now() - INACTIVITY_TIMEOUT_MS).toISOString();
+  await db.delete(roomsTable).where(lt(roomsTable.lastActivityAt, cutoff));
 }
 
 function generateRoomCode(): string {
@@ -304,5 +404,5 @@ function generateRoomCode(): string {
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
-  return rooms.has(code) ? generateRoomCode() : code;
+  return code;
 }

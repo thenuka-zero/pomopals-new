@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Friend, FriendRequest } from "@/lib/types";
+import { useFriendsStore } from "@/store/friends-store";
 
 type Tab = "friends" | "add" | "requests";
 
@@ -21,6 +22,7 @@ interface Toast {
 
 export default function FriendsPage() {
   const { data: session } = useSession();
+  const { pendingRequestCount, fetchPendingCount } = useFriendsStore();
   const [activeTab, setActiveTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [incoming, setIncoming] = useState<FriendRequest[]>([]);
@@ -33,6 +35,8 @@ export default function FriendsPage() {
   const [inlineEmailInputFor, setInlineEmailInputFor] = useState<string | null>(null);
   const [inlineEmail, setInlineEmail] = useState("");
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
+  const [newReqIds, setNewReqIds] = useState<Set<string>>(new Set());
+  const [newlyAcceptedFriendIds, setNewlyAcceptedFriendIds] = useState<string[]>([]);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,14 +69,35 @@ export default function FriendsPage() {
     }
   }, []);
 
+  // Load "New" ribbon IDs from localStorage on mount
+  useEffect(() => {
+    const ids: string[] = JSON.parse(localStorage.getItem("pomo-new-req-ids") ?? "[]");
+    setNewReqIds(new Set(ids));
+  }, []);
+
   useEffect(() => {
     if (!session?.user) return;
     if (activeTab === "friends") {
       fetchFriends();
+      if (newlyAcceptedFriendIds.length > 0) {
+        setNewlyAcceptedFriendIds([]);
+      }
     } else if (activeTab === "requests") {
       fetchRequests();
+      // Clear "New" ribbons on requests tab
+      setNewReqIds(new Set());
+      localStorage.removeItem("pomo-new-req-ids");
+      fetchPendingCount();
     }
-  }, [activeTab, session?.user, fetchFriends, fetchRequests]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, session?.user, fetchFriends, fetchRequests, fetchPendingCount]);
+
+  // Fetch requests on initial mount so incoming is populated for badge/ribbon logic
+  useEffect(() => {
+    if (!session?.user) return;
+    fetchRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user]);
 
   // Search with debounce
   useEffect(() => {
@@ -149,8 +174,20 @@ export default function FriendsPage() {
       });
       if (res.ok) {
         showToast(`You and ${requesterName} are now friends!`, "success");
+        // Track newly-accepted friend for "New" ribbon on Friends tab
+        const accepted = incoming.find((r) => r.id === requestId);
+        if (accepted) {
+          setNewlyAcceptedFriendIds((prev) => [...prev, accepted.requesterId]);
+          // Remove from newReqIds
+          setNewReqIds((prev) => {
+            const next = new Set(prev);
+            next.delete(requestId);
+            return next;
+          });
+        }
         fetchRequests();
         fetchFriends();
+        fetchPendingCount();
       } else {
         showToast("Failed to accept request.", "error");
       }
@@ -227,8 +264,6 @@ export default function FriendsPage() {
     );
   }
 
-  const pendingIncomingCount = incoming.filter((r) => r.status === "pending").length;
-
   return (
     <div className="max-w-2xl mx-auto p-6">
       <h1 className="text-2xl font-bold text-[#3D2C2C] mb-6">Friends</h1>
@@ -236,7 +271,12 @@ export default function FriendsPage() {
       {/* Tab bar */}
       <div className="flex gap-0 mb-6 border-b border-[#E8D5C4]">
         <TabButton active={activeTab === "friends"} onClick={() => setActiveTab("friends")}>
-          My Friends ({friends.length} / 50)
+          <span className="flex items-center gap-1">
+            My Friends ({friends.length} / 50)
+            {newlyAcceptedFriendIds.length > 0 && (
+              <span className="w-2 h-2 bg-[#E54B4B] rounded-full inline-block" />
+            )}
+          </span>
         </TabButton>
         <TabButton active={activeTab === "add"} onClick={() => setActiveTab("add")}>
           Add Friend
@@ -244,9 +284,9 @@ export default function FriendsPage() {
         <TabButton active={activeTab === "requests"} onClick={() => setActiveTab("requests")}>
           <span className="flex items-center gap-1">
             Requests
-            {pendingIncomingCount > 0 && (
+            {pendingRequestCount > 0 && (
               <span className="bg-[#E54B4B] text-white text-xs rounded-full px-1.5 py-0.5 leading-none">
-                {pendingIncomingCount}
+                {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
               </span>
             )}
           </span>
@@ -261,6 +301,7 @@ export default function FriendsPage() {
           confirmUnfriend={confirmUnfriend}
           onConfirmUnfriend={setConfirmUnfriend}
           onUnfriend={unfriend}
+          newlyAcceptedFriendIds={newlyAcceptedFriendIds}
         />
       )}
       {activeTab === "add" && (
@@ -285,6 +326,7 @@ export default function FriendsPage() {
           onAccept={acceptRequest}
           onReject={rejectRequest}
           onCancel={cancelRequest}
+          newReqIds={newReqIds}
         />
       )}
 
@@ -335,12 +377,14 @@ function FriendsListTab({
   confirmUnfriend,
   onConfirmUnfriend,
   onUnfriend,
+  newlyAcceptedFriendIds,
 }: {
   friends: Friend[];
   loadingAction: string | null;
   confirmUnfriend: string | null;
   onConfirmUnfriend: (id: string | null) => void;
   onUnfriend: (userId: string, name: string) => void;
+  newlyAcceptedFriendIds: string[];
 }) {
   if (friends.length === 0) {
     return (
@@ -371,7 +415,12 @@ function FriendsListTab({
               {initial}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[#3D2C2C] truncate">{friend.name}</p>
+              <p className="text-sm font-semibold text-[#3D2C2C] truncate flex items-center gap-1.5">
+                {friend.name}
+                {newlyAcceptedFriendIds.includes(friend.userId) && (
+                  <span className="text-[9px] font-bold bg-[#E54B4B] text-white px-1.5 py-0.5 rounded-full leading-none">New</span>
+                )}
+              </p>
               <p className="text-xs text-[#A08060]">Friends since {since}</p>
             </div>
             <div className="flex-shrink-0">
@@ -571,6 +620,7 @@ function RequestsTab({
   onAccept,
   onReject,
   onCancel,
+  newReqIds,
 }: {
   incoming: FriendRequest[];
   outgoing: FriendRequest[];
@@ -578,6 +628,7 @@ function RequestsTab({
   onAccept: (id: string, name: string) => void;
   onReject: (id: string) => void;
   onCancel: (id: string) => void;
+  newReqIds: Set<string>;
 }) {
   const pendingIncoming = incoming.filter((r) => r.status === "pending");
   const pendingOutgoing = outgoing.filter((r) => r.status === "pending");
@@ -608,7 +659,12 @@ function RequestsTab({
                     {initial}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#3D2C2C] truncate">{r.requesterName}</p>
+                    <p className="text-sm font-semibold text-[#3D2C2C] truncate flex items-center gap-1.5">
+                      {r.requesterName}
+                      {newReqIds.has(r.id) && (
+                        <span className="text-[9px] font-bold bg-[#E54B4B] text-white px-1.5 py-0.5 rounded-full leading-none">New</span>
+                      )}
+                    </p>
                     <p className="text-xs text-[#A08060]">
                       {new Date(r.createdAt).toLocaleDateString("en-US", {
                         month: "short",

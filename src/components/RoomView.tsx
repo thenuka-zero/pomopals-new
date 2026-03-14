@@ -48,6 +48,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const prevRoomStatus = useRef<string | null>(null);
   const currentIntentionRef = useRef<string>("");
   const roomWorkSessionStartRef = useRef<number | null>(null);
+  const isLeavingRef = useRef(false);
 
   const isAdmin = room?.hostId === userId;
   const isPrivilegedUser = isAdmin || (room?.coHostIds?.includes(userId) ?? false);
@@ -128,11 +129,13 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       const newPhase = data.timerState.phase;
       const newTimeRemaining = data.timerState.timeRemaining;
 
-      // Detect natural phase transition: phase changed AND previous timeRemaining was near-zero
+      // Detect natural phase transition: phase changed AND previous timeRemaining was near-zero.
+      // Threshold is 10s (not 3s) to handle polling jitter — with 1s polls the client can
+      // easily see 4–8 seconds remaining on its last read before the server transitions.
       if (
         prevRoomPhase.current !== null &&
         prevRoomPhase.current !== newPhase &&
-        prevRoomTimeRemaining.current <= 3
+        prevRoomTimeRemaining.current <= 10
       ) {
         notifyPhaseComplete(prevRoomPhase.current, newPhase, { isRemote: false });
 
@@ -175,13 +178,12 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         }
       }
 
-      // Detect skip: phase changed while time was still > 3s remaining
-      // Call the skip endpoint for the current intention if one is active
+      // Detect skip: phase changed while time was still > 10s remaining (mirrors threshold above)
       const currentIntentionIdAtPoll = intentionIdRef.current;
       if (
         prevRoomPhase.current === "work" &&
         prevRoomPhase.current !== newPhase &&
-        prevRoomTimeRemaining.current > 3 &&
+        prevRoomTimeRemaining.current > 10 &&
         currentIntentionIdAtPoll
       ) {
         fetch(`/api/intentions/${currentIntentionIdAtPoll}/skip`, { method: "POST" }).catch(() => {});
@@ -234,6 +236,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       prevRoomTimeRemaining.current = newTimeRemaining;
       prevRoomStatus.current = newStatus;
 
+      if (isLeavingRef.current) return;
       syncState(newPhase, newStatus, newTimeRemaining, data.timerState.pomodoroCount);
 
       // Fetch join requests if the current user is the host
@@ -306,7 +309,12 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
 
     const HOST_KEY = `pomopals-was-host-${roomId}-${userId}`;
 
+    // Track whether beforeunload already sent the leave beacon, to avoid
+    // a double-leave on page refresh (both beforeunload and React cleanup fire).
+    let unloadBeaconSent = false;
+
     const handleBeforeUnload = () => {
+      unloadBeaconSent = true;
       // Persist host status so we can reclaim it after a page refresh.
       // sessionStorage survives a refresh but is cleared when the tab closes.
       if (isAdminRef.current) {
@@ -323,16 +331,37 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
+      isLeavingRef.current = true;
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Also fire on component unmount (navigating away within SPA)
-      navigator.sendBeacon(
-        `/api/rooms/${roomId}`,
-        new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
-      );
-      navigator.sendBeacon(
-        "/api/presence",
-        new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
-      );
+      // Only fire the leave beacon for SPA navigation — beforeunload already
+      // handles page refresh/tab close, and a second leave would incorrectly
+      // strip co-host status by reassigning the temp host.
+      if (!unloadBeaconSent) {
+        navigator.sendBeacon(
+          `/api/rooms/${roomId}`,
+          new Blob([JSON.stringify({ action: "leave", userId })], { type: "application/json" })
+        );
+        navigator.sendBeacon(
+          "/api/presence",
+          new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
+        );
+      }
+      // Reset timer store so other pages show a clean solo timer
+      const s = useTimerStore.getState();
+      useTimerStore.setState({
+        status: "idle",
+        phase: "work",
+        timeRemaining: s.settings.workDuration * 60,
+        startedAt: null,
+        elapsed: 0,
+        currentIntention: "",
+        pendingReflection: false,
+        lastCompletedSessionId: null,
+        pendingInterruptPrompt: null,
+        lastTransitionType: null,
+        roomId: null,
+        roomParticipantCount: null,
+      });
     };
   }, [roomId, userId, joined]);
 
@@ -587,12 +616,14 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           onPause={() => sendAction("pause")}
           onReset={handleRoomReset}
           onSkip={handleRoomSkip}
+          controlSlot={
+            session?.user && intentionsEnabled ? (
+              <div className="max-w-xs w-full">
+                <IntentionInput />
+              </div>
+            ) : undefined
+          }
         />
-        {session?.user && intentionsEnabled && (
-          <div className="w-full max-w-xs mt-2">
-            <IntentionInput />
-          </div>
-        )}
       </div>
 
       {/* Host controls label for participants */}

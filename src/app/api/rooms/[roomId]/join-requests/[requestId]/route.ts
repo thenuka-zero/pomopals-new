@@ -49,7 +49,7 @@ export async function PATCH(
   }
 
   // Check room still exists
-  const room = getRoom(roomId);
+  const room = await getRoom(roomId);
   if (!room) {
     await db
       .update(roomJoinRequests)
@@ -100,7 +100,7 @@ export async function PATCH(
 
     // Add participant to room — may throw if full (race condition)
     try {
-      const updatedRoom = joinRoom(roomId, joinRequest.requesterId, requesterName);
+      const updatedRoom = await joinRoom(roomId, joinRequest.requesterId, requesterName);
       if (!updatedRoom) {
         return NextResponse.json(
           { error: "Room no longer exists" },
