@@ -456,7 +456,7 @@ export default function CompactTimer() {
               >
                 {phaseLabel}
                 <span className="text-[#B8A080] font-normal ml-2">
-                  #{pomodoroCount + 1}
+                  #{isWork ? pomodoroCount + 1 : pomodoroCount}
                 </span>
               </div>
             </div>
