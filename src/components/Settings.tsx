@@ -147,12 +147,9 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
             onChange={() => setLocal({ ...local, autoStartBreaks: !local.autoStartBreaks })}
           />
           {settingsLoaded ? (
-            <>
-              <ToggleRow label="Share sessions with friends" checked={broadcastEnabled} onChange={handleBroadcastToggle} />
-              <ToggleRow label="Intentions" checked={intentionsEnabled} onChange={handleIntentionsToggle} color="#E54B4B" />
-            </>
+            <ToggleRow label="Intentions" checked={intentionsEnabled} onChange={handleIntentionsToggle} color="#E54B4B" />
           ) : (
-            <div className="h-16 bg-[#F0E6D3] rounded-lg animate-pulse" />
+            <div className="h-8 bg-[#F0E6D3] rounded-lg animate-pulse" />
           )}
         </div>
 
