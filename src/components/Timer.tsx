@@ -54,7 +54,7 @@ function playEndSound() {
 }
 
 export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, isReadOnly, controlSlot }: TimerProps) {
-  const { phase, status, timeRemaining, pomodoroCount, settings, lastTransitionType, start, pause, resume, reset, skip, tick } =
+  const { phase, status, timeRemaining, pomodoroCount, settings, lastTransitionType, start, pause, resume, reset, skip, tick, completeEarly } =
     useTimerStore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const prevStatusRef = useRef(status);
@@ -134,6 +134,10 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
     if (isRoomMode && onSkip) onSkip(); else skip();
   }, [isRoomMode, onSkip, skip]);
 
+  const handleEndEarly = useCallback(() => {
+    completeEarly();
+  }, [completeEarly]);
+
   const radius = 120;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -190,6 +194,15 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
           <button onClick={handleReset} className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
             Reset
           </button>
+          {status === "running" && phase === "work" && !isRoomMode && (
+            <button
+              onClick={handleEndEarly}
+              className="px-6 py-3 bg-white border-2 border-[#6EAE3E]/40 text-[#6EAE3E] rounded-full font-bold hover:bg-[#6EAE3E]/10 transition-all"
+              title="End early — mark as done and start break"
+            >
+              Done
+            </button>
+          )}
           <button onClick={handleSkip} className="px-4 py-3 text-[#A08060] hover:text-[#E54B4B] transition-colors" title="Skip to next phase">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
               <path d="M5 5v14l11-7z" /><path d="M19 5v14h-2V5h2z" />

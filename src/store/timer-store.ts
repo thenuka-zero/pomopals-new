@@ -230,8 +230,8 @@ export const useTimerStore = create<TimerState>()(
               phase: state.phase,
               plannedDuration: totalDuration,
               actualDuration: elapsed,
-              completed: false,
-              completionPercentage: Math.round((elapsed / totalDuration) * 100),
+              completed: true,
+              completionPercentage: 100,
               date: new Date().toISOString().split("T")[0],
             };
             completedSessionId = session.id;
