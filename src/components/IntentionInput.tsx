@@ -53,7 +53,7 @@ export default function IntentionInput() {
   // Closed state — show pencil icon (+ intention preview if one is set)
   if (!showInput) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <button
           onClick={() => {
             setShowInput(true);
