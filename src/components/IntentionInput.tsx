@@ -11,23 +11,21 @@ export default function IntentionInput() {
   const [showInput, setShowInput] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // When running, show read-only active intention
-  if (status === "running" && currentIntention) {
-    return (
-      <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-start gap-2">
-        <span className="text-xs mt-0.5">💭</span>
-        <span className="break-words">{currentIntention}</span>
-      </div>
-    );
+  // During work phase running: show read-only (can't edit mid-session)
+  if (status === "running" && phase === "work") {
+    if (currentIntention) {
+      return (
+        <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] italic flex items-start gap-2">
+          <span className="text-xs mt-0.5">💭</span>
+          <span className="break-words">{currentIntention}</span>
+        </div>
+      );
+    }
+    return null;
   }
 
-  // When running without intention, show nothing
-  if (status === "running") return null;
-
-  // Only show in idle/paused during work phase
-  const canShow =
-    (status === "idle" || status === "paused") &&
-    (phase === "work" || status === "idle");
+  // During a running break or idle/paused: show the editable UI
+  const canShow = status === "idle" || status === "paused" || (status === "running" && phase !== "work");
 
   if (!canShow) return null;
 

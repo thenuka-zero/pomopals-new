@@ -172,48 +172,49 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
         </div>
       </div>
 
-      {/* Controls */}
-      {!isReadOnly && (
-        <div className="flex flex-col items-center gap-3">
+      {/* Controls + intention input */}
+      <div className="flex flex-col items-center gap-3 w-full">
+        {!isReadOnly && (
           <div className="flex flex-wrap items-center justify-center gap-3">
-          {status === "idle" && (
-            <button onClick={handleStart} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all">
-              Start
+            {status === "idle" && (
+              <button onClick={handleStart} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all">
+                Start
+              </button>
+            )}
+            {status === "running" && (
+              <button onClick={handlePause} className="px-8 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
+                Pause
+              </button>
+            )}
+            {status === "paused" && (
+              <button onClick={handleResume} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] transition-all">
+                Resume
+              </button>
+            )}
+            <button onClick={handleReset} className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
+              Reset
             </button>
-          )}
-          {status === "running" && (
-            <button onClick={handlePause} className="px-8 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
-              Pause
+            {status === "running" && phase === "work" && !isRoomMode && (
+              <button
+                onClick={handleEndEarly}
+                className="px-6 py-3 bg-white border-2 border-[#6EAE3E]/40 text-[#6EAE3E] rounded-full font-bold hover:bg-[#6EAE3E]/10 transition-all"
+                title="End early — mark as done and start break"
+              >
+                Done
+              </button>
+            )}
+            <button onClick={handleSkip} className="px-4 py-3 text-[#A08060] hover:text-[#E54B4B] transition-colors" title="Skip to next phase">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5 5v14l11-7z" /><path d="M19 5v14h-2V5h2z" />
+              </svg>
             </button>
-          )}
-          {status === "paused" && (
-            <button onClick={handleResume} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] transition-all">
-              Resume
-            </button>
-          )}
-          <button onClick={handleReset} className="px-6 py-3 bg-white border-2 border-[#F0E6D3] text-[#5C4033] rounded-full font-bold hover:border-[#E54B4B]/30 transition-all">
-            Reset
-          </button>
-          {status === "running" && phase === "work" && !isRoomMode && (
-            <button
-              onClick={handleEndEarly}
-              className="px-6 py-3 bg-white border-2 border-[#6EAE3E]/40 text-[#6EAE3E] rounded-full font-bold hover:bg-[#6EAE3E]/10 transition-all"
-              title="End early — mark as done and start break"
-            >
-              Done
-            </button>
-          )}
-          <button onClick={handleSkip} className="px-4 py-3 text-[#A08060] hover:text-[#E54B4B] transition-colors" title="Skip to next phase">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M5 5v14l11-7z" /><path d="M19 5v14h-2V5h2z" />
-            </svg>
-          </button>
           </div>
-          {status === "idle" && controlSlot && (
-            <div className="w-full max-w-xs">{controlSlot}</div>
-          )}
-        </div>
-      )}
+        )}
+        {/* Intention input — shown to all participants, not gated by isReadOnly */}
+        {controlSlot && (
+          <div className="w-full max-w-xs">{controlSlot}</div>
+        )}
+      </div>
 
       {/* Pomodoro dots */}
       <div className="flex gap-2 mt-2">

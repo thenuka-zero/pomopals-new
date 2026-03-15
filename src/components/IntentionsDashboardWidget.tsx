@@ -58,6 +58,19 @@ export default function IntentionsDashboardWidget() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const deleteIntention = async (id: string) => {
+    setIntentions((prev) => prev.filter((i) => i.id !== id));
+    setTotal((t) => t - 1);
+    setConfirmDeleteId(null);
+    try {
+      const res = await fetch(`/api/intentions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      fetchIntentions(page, statusFilter);
+    }
+  };
 
   const fetchIntentions = useCallback(
     async (p: number, filter: StatusFilter, append = false) => {
@@ -186,11 +199,37 @@ export default function IntentionsDashboardWidget() {
                         </div>
                       </div>
                     </div>
-                    {item.note && (
-                      <span className="text-[10px] text-[#A08060] italic ml-2 shrink-0 max-w-[120px] truncate" title={item.note}>
-                        {item.note}
-                      </span>
-                    )}
+                    <div className="shrink-0 flex items-center ml-2">
+                      {confirmDeleteId === item.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => deleteIntention(item.id)}
+                            className="text-[10px] font-bold text-white bg-[#E54B4B] px-2 py-0.5 rounded-full hover:bg-[#D43D3D] transition-colors"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-[10px] font-bold text-[#8B7355] hover:text-[#3D2C2C] transition-colors"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(item.id)}
+                          className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+                          title="Delete intention"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
