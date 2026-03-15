@@ -168,10 +168,10 @@ function HomeContent() {
 
       {/* Footer */}
       <footer className="border-t border-[#F0E6D3] py-6 text-center">
-        <p className="text-sm text-[#B8A080]">Made with care. Focus better, together.</p>
-        <p className="text-xs text-[#B8A080] mt-2">
+        <p className="text-sm text-[#B8A080]">
+          Made with care. Focus better, together.{" "}·{" "}
           <a href="/changelog" className="hover:text-[#8B7355] transition-colors hover:underline underline-offset-2">
-            What&apos;s new
+            ✨ What&apos;s new
           </a>
         </p>
       </footer>
