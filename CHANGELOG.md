@@ -4,6 +4,16 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-15
+
+### Fixed
+- Intention input no longer disappears from group rooms once the timer starts — now stays visible as a read-only display while running
+- Delete and discard buttons in the intentions journal and dashboard session rows are now always visible instead of hidden until hover
+- Room intentions are now isolated from the solo timer — starting a Pomodoro in a group room no longer pre-fills the intention in the solo compact view
+
+### Added
+- Product roadmap tab on the What's New page, showing upcoming features for March and April 2026
+
 ## [0.2.0] - 2026-03-15
 
 ### Fixed
