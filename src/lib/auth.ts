@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { scrypt, randomBytes, timingSafeEqual, randomUUID } from "crypto";
 import { promisify } from "util";
+import { jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users } from "./db/schema";
@@ -54,8 +55,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        autoSignInToken: { label: "Auto Sign-In Token", type: "text" },
       },
       async authorize(credentials) {
+        // Auto sign-in flow (post email verification)
+        const autoSignInToken = credentials?.autoSignInToken as string | undefined;
+        if (autoSignInToken) {
+          try {
+            const secret = new TextEncoder().encode(process.env.AUTH_SECRET ?? "");
+            const { payload } = await jwtVerify(autoSignInToken, secret);
+            if (payload.purpose !== "autologin" || !payload.sub) return null;
+            const user = await db.query.users.findFirst({
+              where: eq(users.id, payload.sub),
+            });
+            if (!user) return null;
+            emailVerifiedCache.set(user.id, user.emailVerified);
+            return { id: user.id, name: user.name, email: user.email };
+          } catch {
+            return null;
+          }
+        }
+
         const email = (credentials?.email as string)?.trim()?.toLowerCase();
         const password = credentials?.password as string;
 

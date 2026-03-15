@@ -128,19 +128,22 @@ export default function FriendsPage() {
     };
   }, [searchQuery]);
 
-  const sendRequest = async (recipientEmail: string, displayName: string) => {
-    setLoadingAction(recipientEmail);
+  const sendRequest = async (recipientEmailOrId: string, displayName: string, byId = false) => {
+    setLoadingAction(recipientEmailOrId);
     try {
+      const body = byId ? { recipientId: recipientEmailOrId } : { recipientEmail: recipientEmailOrId };
       const res = await fetch("/api/friends/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientEmail }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         showToast(`Friend request sent to ${displayName}!`, "success");
         setSearchResults((prev) =>
           prev.map((r) =>
-            r.email === recipientEmail ? { ...r, hasPendingRequest: true } : r
+            (byId ? r.id === recipientEmailOrId : r.email === recipientEmailOrId)
+              ? { ...r, hasPendingRequest: true }
+              : r
           )
         );
         setInlineEmailInputFor(null);
@@ -480,7 +483,7 @@ function AddFriendTab({
   inlineEmail: string;
   onInlineEmailInputFor: (id: string | null) => void;
   onInlineEmailChange: (email: string) => void;
-  onSendRequest: (email: string, name: string) => void;
+  onSendRequest: (emailOrId: string, name: string, byId?: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -548,51 +551,16 @@ function AddFriendTab({
                       </button>
                     ) : (
                       <button
-                        onClick={() => {
-                          if (isShowingInline) {
-                            onInlineEmailInputFor(null);
-                            onInlineEmailChange("");
-                          } else {
-                            onInlineEmailInputFor(result.id);
-                            onInlineEmailChange("");
-                          }
-                        }}
-                        className="px-3 py-1 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors"
+                        onClick={() => onSendRequest(result.id, result.name, true)}
+                        disabled={isLoading}
+                        className="px-3 py-1 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors disabled:opacity-50"
                       >
-                        {isShowingInline ? "Cancel" : "Add Friend"}
+                        {isLoading ? "Sending..." : "Add Friend"}
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Inline email input for name-search results without email */}
-                {isShowingInline && (
-                  <div className="px-4 pb-3 pt-0 border-t border-[#F0E6D3] bg-[#FDF6EC]">
-                    <p className="text-xs text-[#5C4033] mb-2 pt-2">
-                      Enter {result.name}&apos;s email address to send a request:
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        value={inlineEmail}
-                        onChange={(e) => onInlineEmailChange(e.target.value)}
-                        placeholder="email@example.com"
-                        className="flex-1 bg-white border-2 border-[#F0E6D3] rounded-lg px-3 py-1.5 text-sm text-[#3D2C2C] placeholder-[#B8A080] focus:outline-none focus:border-[#E54B4B] transition-colors"
-                      />
-                      <button
-                        onClick={() => {
-                          if (inlineEmail.trim()) {
-                            onSendRequest(inlineEmail.trim(), result.name);
-                          }
-                        }}
-                        disabled={!inlineEmail.trim() || isLoading}
-                        className="px-3 py-1.5 text-xs bg-[#E54B4B] text-white rounded-lg font-semibold hover:bg-[#D43D3D] transition-colors disabled:opacity-50"
-                      >
-                        {isLoading ? "..." : "Send"}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

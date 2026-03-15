@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, isNull } from "drizzle-orm";
+import { SignJWT } from "jose";
 import { db } from "@/lib/db";
 import { users, emailVerificationTokens } from "@/lib/db/schema";
 
@@ -54,7 +55,14 @@ export async function GET(request: NextRequest) {
       .set({ usedAt: now })
       .where(eq(emailVerificationTokens.id, tokenRecord.id));
 
-    return NextResponse.redirect(`${appUrl}/?verified=true`);
+    // Generate a short-lived auto-sign-in token
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET ?? "");
+    const autoSignInToken = await new SignJWT({ sub: tokenRecord.userId, purpose: "autologin" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("5m")
+      .sign(secret);
+
+    return NextResponse.redirect(`${appUrl}/?autoSignIn=${encodeURIComponent(autoSignInToken)}`);
   } catch (error) {
     console.error("Verification error:", error);
     return NextResponse.redirect(`${appUrl}/?error=invalid-token`);

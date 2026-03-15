@@ -34,16 +34,16 @@ export async function POST(request: NextRequest) {
 
   const myId = session.user.id;
   const body = await request.json().catch(() => ({}));
-  const { recipientEmail } = body;
+  const { recipientEmail, recipientId } = body;
 
-  if (!recipientEmail || typeof recipientEmail !== "string") {
+  if (!recipientEmail && !recipientId) {
     return NextResponse.json(
-      { error: "recipientEmail is required" },
+      { error: "recipientEmail or recipientId is required" },
       { status: 400 }
     );
   }
 
-  if (!isValidEmail(recipientEmail)) {
+  if (recipientEmail && !isValidEmail(recipientEmail)) {
     return NextResponse.json(
       { error: "Invalid email address" },
       { status: 400 }
@@ -51,7 +51,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Self-request check
-  if (recipientEmail.toLowerCase() === session.user.email?.toLowerCase()) {
+  if (recipientEmail && recipientEmail.toLowerCase() === session.user.email?.toLowerCase()) {
+    return NextResponse.json(
+      { error: "You cannot send a friend request to yourself" },
+      { status: 422 }
+    );
+  }
+  if (recipientId && recipientId === myId) {
     return NextResponse.json(
       { error: "You cannot send a friend request to yourself" },
       { status: 422 }
@@ -62,7 +68,7 @@ export async function POST(request: NextRequest) {
   const [recipient] = await db
     .select()
     .from(users)
-    .where(eq(users.email, recipientEmail.toLowerCase()))
+    .where(recipientId ? eq(users.id, recipientId) : eq(users.email, recipientEmail.toLowerCase()))
     .limit(1);
 
   if (!recipient) {

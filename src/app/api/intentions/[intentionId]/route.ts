@@ -6,6 +6,35 @@ import { eq, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+// DELETE /api/intentions/[intentionId] — Hard delete an intention
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ intentionId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { intentionId } = await params;
+
+  const [existing] = await db
+    .select()
+    .from(intentions)
+    .where(and(eq(intentions.id, intentionId), eq(intentions.userId, userId)))
+    .limit(1);
+
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  await db
+    .delete(intentions)
+    .where(and(eq(intentions.id, intentionId), eq(intentions.userId, userId)));
+
+  return NextResponse.json({ success: true });
+}
+
 // PATCH /api/intentions/[intentionId] — Submit reflection
 export async function PATCH(
   request: NextRequest,

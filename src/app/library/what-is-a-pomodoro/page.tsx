@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RelatedArticles from "@/components/RelatedArticles";
 
 export const metadata = {
   title: "What is a Pomodoro? | Pom's Library",
@@ -393,6 +394,7 @@ export default function WhatIsAPomodoro() {
           </Link>
         </div>
 
+        <RelatedArticles currentSlug="what-is-a-pomodoro" />
       </div>
     </main>
   );

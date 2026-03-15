@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   shortBreakDuration: 5,
   longBreakDuration: 15,
   longBreakInterval: 4,
-  notificationSound: "none",
+  notificationSound: "bell",
   autoStartBreaks: false,
 };
 
@@ -206,11 +206,11 @@ export const useTimerStore = create<TimerState>()(
             isRemoteTransition: false,
             pendingInterruptPrompt: { session: opts.deferredSession, action: "skip", intentionId: opts.intentionId ?? null },
           });
-          transitionPhase(state, set);
+          transitionPhase(state, set, "skipped");
         } else {
           recordSessionIfNeeded(state, set);
           set({ lastTransitionType: "skipped", isRemoteTransition: false });
-          transitionPhase(state, set);
+          transitionPhase(state, set, "skipped");
         }
       },
 
@@ -460,13 +460,14 @@ function recordSessionIfNeeded(
 function transitionPhase(
   state: TimerState,
   set: (partial: Partial<TimerState> | ((s: TimerState) => Partial<TimerState>)) => void,
+  transitionType?: string,
 ) {
   const { phase, pomodoroCount, settings } = state;
   const autoStart = settings.autoStartBreaks;
   const now = autoStart ? Date.now() : null;
 
   if (phase === "work") {
-    const newCount = pomodoroCount + 1;
+    const newCount = transitionType === "skipped" ? pomodoroCount : pomodoroCount + 1;
     if (newCount % settings.longBreakInterval === 0) {
       set({
         phase: "longBreak",

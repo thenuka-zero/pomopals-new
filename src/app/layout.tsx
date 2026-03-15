@@ -15,6 +15,17 @@ export const metadata: Metadata = {
   verification: {
     google: "yd_HMKEubj5ni_kIKgQpKXGznjWs60i1LcpoZfd1920",
   },
+  openGraph: {
+    title: "PomoPals — Pomodoro Timer with Friends",
+    description: "A cute collaborative Pomodoro timer. Focus together, track your progress, and stay productive with friends.",
+    siteName: "PomoPals",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PomoPals — Pomodoro Timer with Friends",
+    description: "A cute collaborative Pomodoro timer. Focus together, track your progress, and stay productive with friends.",
+  },
 };
 
 export default async function RootLayout({

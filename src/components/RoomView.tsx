@@ -618,9 +618,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           onSkip={handleRoomSkip}
           controlSlot={
             session?.user && intentionsEnabled ? (
-              <div className="max-w-xs w-full">
-                <IntentionInput />
-              </div>
+              <IntentionInput />
             ) : undefined
           }
         />

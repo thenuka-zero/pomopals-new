@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RelatedArticles from "@/components/RelatedArticles";
 
 export const metadata = {
   title: "What are the best books on Pomodoros? | Pom's Library",
@@ -54,14 +55,13 @@ function Divider() {
 }
 
 function BookEntry({
-  emoji,
   title,
   author,
   year,
   tag,
   children,
 }: {
-  emoji: string;
+  emoji?: string;
   title: string;
   author: string;
   year: string;
@@ -71,7 +71,6 @@ function BookEntry({
   return (
     <div className="rounded-xl border border-[#F0E6D3] overflow-hidden">
       <div className="flex items-center gap-3 bg-[#FDF6EC] px-4 py-3 border-b border-[#F0E6D3]">
-        <span className="text-2xl leading-none select-none flex-shrink-0">{emoji}</span>
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-[#3D2C2C] leading-snug">{title}</p>
           <p className="text-xs text-[#8B7355]">{author} · {year}</p>
@@ -382,6 +381,7 @@ export default function BestBooksOnPomodoros() {
           </Link>
         </div>
 
+        <RelatedArticles currentSlug="best-books-on-pomodoros" />
       </div>
     </main>
   );

@@ -122,7 +122,9 @@ export default function IntentionInput() {
           aria-label="Confirm intention"
           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <PencilIcon />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
         </button>
       </div>
       {showCounter && (

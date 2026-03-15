@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 import TomatoMascot from "@/components/TomatoMascot";
 import AuthModal from "@/components/AuthModal";
@@ -16,6 +16,15 @@ function HomeContent() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
+    const autoSignInToken = searchParams.get("autoSignIn");
+    if (autoSignInToken) {
+      signIn("credentials", { autoSignInToken, redirect: false }).then(() => {
+        router.replace("/");
+        setToast({ type: "success", message: "Email verified! You're now signed in." });
+      });
+      return;
+    }
+
     const verified = searchParams.get("verified");
     const error = searchParams.get("error");
 
@@ -104,6 +113,7 @@ function HomeContent() {
             }
             title="Focus Timer"
             description="Customizable Pomodoros with work & break durations."
+            href="/timer"
           />
           <FeatureCard
             icon={
@@ -115,6 +125,7 @@ function HomeContent() {
             }
             title="Focus with Friends"
             description="Create rooms, share links, and sync Pomodoros in real time."
+            href="/friends"
           />
           <FeatureCard
             icon={

@@ -75,7 +75,8 @@ export async function checkAchievements(ctx: CheckContext): Promise<string[]> {
         trackProgress('pomodoro-pro', totalCompleted);
         trackProgress('the-legend', totalCompleted);
 
-        if (totalCompleted >= 1) await unlock('first-step');
+        const isSubstantial = session.actualDuration >= session.plannedDuration * 0.9;
+        if (totalCompleted >= 1 && isSubstantial) await unlock('first-step');
         if (totalCompleted >= 10) await unlock('finding-your-rhythm');
         if (totalCompleted >= 100) await unlock('centurion');
         if (totalCompleted >= 500) await unlock('pomodoro-pro');

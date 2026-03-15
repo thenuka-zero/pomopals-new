@@ -174,8 +174,8 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
 
       {/* Controls */}
       {!isReadOnly && (
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {status === "idle" && controlSlot}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
           {status === "idle" && (
             <button onClick={handleStart} className="px-8 py-3 bg-[#E54B4B] text-white rounded-full font-bold shadow-lg shadow-[#E54B4B]/25 hover:bg-[#D43D3D] hover:-translate-y-0.5 transition-all">
               Start
@@ -208,6 +208,10 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
               <path d="M5 5v14l11-7z" /><path d="M19 5v14h-2V5h2z" />
             </svg>
           </button>
+          </div>
+          {status === "idle" && controlSlot && (
+            <div className="w-full max-w-xs">{controlSlot}</div>
+          )}
         </div>
       )}
 

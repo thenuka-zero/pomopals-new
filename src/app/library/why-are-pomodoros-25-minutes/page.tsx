@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RelatedArticles from "@/components/RelatedArticles";
 
 export const metadata = {
   title: "Why are Pomodoros 25 minutes? | Pom's Library",
@@ -401,6 +402,7 @@ export default function WhyArePomodoros25Minutes() {
           </Link>
         </div>
 
+        <RelatedArticles currentSlug="why-are-pomodoros-25-minutes" />
       </div>
     </main>
   );

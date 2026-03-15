@@ -59,6 +59,7 @@ export default function IntentionsJournal() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchTrends = useCallback(async () => {
     try {
@@ -128,6 +129,20 @@ export default function IntentionsJournal() {
       else next.add(id);
       return next;
     });
+  };
+
+  const deleteIntention = async (id: string) => {
+    const prev = intentions;
+    setIntentions((current) => current.filter((i) => i.id !== id));
+    setTotal((t) => t - 1);
+    setConfirmDeleteId(null);
+    try {
+      const res = await fetch(`/api/intentions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+    } catch {
+      setIntentions(prev);
+      setTotal((t) => t + 1);
+    }
   };
 
   const grouped = groupByDate(intentions);
@@ -251,7 +266,7 @@ export default function IntentionsJournal() {
                     return (
                       <div
                         key={item.id}
-                        className="bg-white/60 rounded-xl px-4 py-3 border border-[#3D2C2C]/[0.08] hover:border-[#3D2C2C]/[0.15] transition-colors"
+                        className="group bg-white/60 rounded-xl px-4 py-3 border border-[#3D2C2C]/[0.08] hover:border-[#3D2C2C]/[0.15] transition-colors"
                       >
                         <div className="flex items-start gap-3">
                           <span className="text-base mt-0.5 shrink-0">
@@ -283,6 +298,40 @@ export default function IntentionsJournal() {
                                 {STATUS_LABELS[item.status]}
                               </span>
                             </div>
+                          </div>
+                          {/* Delete button */}
+                          <div className="shrink-0 flex items-center">
+                            {confirmDeleteId === item.id ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-[#5C4033]">Delete?</span>
+                                <button
+                                  onClick={() => deleteIntention(item.id)}
+                                  className="px-2 py-0.5 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors"
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-2 py-0.5 text-xs bg-[#F0E6D3] text-[#5C4033] rounded-full font-semibold hover:bg-[#E8D5C4] transition-colors"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteId(item.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+                                title="Delete intention"
+                                aria-label="Delete intention"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -51,7 +51,7 @@ function ProgressBar({ current, target, color = "#E54B4B" }: { current: number; 
 
 // ── Individual Achievement Card ────────────────────────────────────────────────
 
-function AchievementCard({ achievement, isNew }: { achievement: AchievementWithStatus; isNew?: boolean }) {
+function AchievementCard({ achievement, isNew, onReset }: { achievement: AchievementWithStatus; isNew?: boolean; onReset?: (id: string) => void }) {
   const isLocked = !achievement.unlocked;
   const isSecretLocked = achievement.isSecret && isLocked;
   const tierC = tierColor(achievement.tier);
@@ -106,7 +106,7 @@ function AchievementCard({ achievement, isNew }: { achievement: AchievementWithS
         </p>
 
         {/* Progress bar (count achievements) */}
-        {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && (
+        {achievement.progressType === "count" && achievement.progressTarget != null && !isSecretLocked && !achievement.unlocked && (
           <ProgressBar
             current={achievement.unlocked ? achievement.progressTarget : (achievement.currentProgress ?? 0)}
             target={achievement.progressTarget}
@@ -114,12 +114,21 @@ function AchievementCard({ achievement, isNew }: { achievement: AchievementWithS
           />
         )}
 
-        {/* Unlock date */}
+        {/* Unlock date + reset */}
         {achievement.unlocked && achievement.unlockedAt && (
-          <div className="flex items-center justify-center gap-1">
+          <div className="flex items-center justify-between gap-1">
             <span className="text-[10px] text-[#6EAE3E] font-semibold">
               ✓ Unlocked {new Date(achievement.unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
+            {onReset && (
+              <button
+                onClick={() => onReset(achievement.id)}
+                className="text-[9px] text-[#A08060] hover:text-[#E54B4B] transition-colors underline-offset-2 hover:underline"
+                title="Reset this achievement"
+              >
+                Reset
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -275,6 +284,16 @@ export default function TrophyCase() {
 
   const bronzeTotal = data.achievements.filter((a) => a.tier === "bronze").length;
 
+  const handleReset = async (achievementId: string) => {
+    await fetch(`/api/achievements/${achievementId}`, { method: "DELETE" });
+    // Refetch achievements
+    setLoading(true);
+    fetch("/api/achievements")
+      .then((r) => r.json())
+      .then((d: GetAchievementsResponse) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
   return (
     <div>
       {/* Summary */}
@@ -338,7 +357,7 @@ export default function TrophyCase() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {filtered.map((achievement) => (
-                <AchievementCard key={achievement.id} achievement={achievement} isNew={newAchievementIds.has(achievement.id)} />
+                <AchievementCard key={achievement.id} achievement={achievement} isNew={newAchievementIds.has(achievement.id)} onReset={handleReset} />
               ))}
             </div>
           )}

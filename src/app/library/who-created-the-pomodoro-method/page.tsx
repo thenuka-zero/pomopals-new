@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RelatedArticles from "@/components/RelatedArticles";
 
 export const metadata = {
   title: "Who Created the Pomodoro Method? | Pom's Library",
@@ -347,6 +348,7 @@ export default function WhoCreatedThePomodoro() {
           </Link>
         </div>
 
+        <RelatedArticles currentSlug="who-created-the-pomodoro-method" />
       </div>
     </main>
   );
