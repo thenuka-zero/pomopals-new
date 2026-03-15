@@ -23,6 +23,17 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState<AnalyticsPeriod>("day");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [discardedIds, setDiscardedIds] = useState<Set<string>>(new Set());
+
+  const handleDiscard = async (sessionId: string) => {
+    setDiscardedIds((prev) => new Set([...prev, sessionId]));
+    try {
+      const res = await fetch(`/api/analytics/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) setDiscardedIds((prev) => { const next = new Set(prev); next.delete(sessionId); return next; });
+    } catch {
+      setDiscardedIds((prev) => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
 
   const currentOption = PERIOD_OPTIONS.find((o) => o.value === period)!;
 
@@ -89,6 +100,7 @@ export default function AnalyticsPage() {
     const seen = new Set<string>();
     return sorted.filter((s) => {
       if (seen.has(s.startedAt)) return false;
+      if (discardedIds.has(s.id)) return false;
       seen.add(s.startedAt);
       return true;
     }).slice(0, 25);
@@ -229,7 +241,7 @@ export default function AnalyticsPage() {
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {allSessions.map((s) => (
-              <SessionRow key={s.id} session={s} />
+              <SessionRow key={s.id} session={s} onDiscard={handleDiscard} />
             ))}
           </div>
         )}
@@ -288,7 +300,8 @@ function StatCard({
   );
 }
 
-function SessionRow({ session }: { session: PomodoroSession }) {
+function SessionRow({ session, onDiscard }: { session: PomodoroSession; onDiscard?: (id: string) => void }) {
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const phaseLabel =
     session.phase === "work"
       ? "Work"
@@ -370,6 +383,38 @@ function SessionRow({ session }: { session: PomodoroSession }) {
               {pct}%
             </span>
           </div>
+        )}
+        {/* Discard */}
+        {onDiscard && (
+          confirmDiscard ? (
+            <div className="flex items-center gap-1 ml-1">
+              <button
+                onClick={() => onDiscard(session.id)}
+                className="text-[10px] font-bold text-white bg-[#E54B4B] px-2 py-0.5 rounded-full hover:bg-[#D43D3D] transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                onClick={() => setConfirmDiscard(false)}
+                className="text-[10px] font-bold text-[#8B7355] hover:text-[#3D2C2C] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDiscard(true)}
+              className="ml-1 opacity-40 hover:opacity-100 transition-opacity text-[#C0A880] hover:text-[#E54B4B]"
+              title="Discard this session"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </button>
+          )
         )}
       </div>
     </div>
