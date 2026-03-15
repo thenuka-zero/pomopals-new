@@ -4,6 +4,12 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-03-15
+
+### Fixed
+- Skipping a work phase in a group room no longer increments the Pomodoro count — now consistent with the solo timer behaviour
+- Privileged room actions (start, pause, reset, skip, end room, co-host management) now verify the request comes from the authenticated session, preventing unauthorised timer control
+
 ## [0.2.4] - 2026-03-15
 
 ### Fixed

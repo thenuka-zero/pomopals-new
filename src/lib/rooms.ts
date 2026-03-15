@@ -399,8 +399,9 @@ export async function skipPhase(roomId: string): Promise<Room | undefined> {
   if (!room) return undefined;
 
   if (room.timerState.phase === "work") {
-    room.timerState.pomodoroCount += 1;
-    if (room.timerState.pomodoroCount % room.settings.longBreakInterval === 0) {
+    // Don't increment pomodoroCount on skip — matches solo timer behavior
+    const count = room.timerState.pomodoroCount;
+    if (count % room.settings.longBreakInterval === 0) {
       room.timerState.phase = "longBreak";
     } else {
       room.timerState.phase = "shortBreak";

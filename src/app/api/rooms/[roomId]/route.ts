@@ -42,6 +42,14 @@ export async function POST(
 
   const HOST_ONLY_ACTIONS = ["end", "transfer-host", "add-cohost", "remove-cohost"];
   const PRIVILEGED_ACTIONS = ["start", "pause", "reset", "skip"];
+  // Actions that require the request body's userId to match the authenticated session
+  const SESSION_VERIFIED_ACTIONS = [...HOST_ONLY_ACTIONS, ...PRIVILEGED_ACTIONS, "reclaim-host", "set-intention"];
+
+  if (SESSION_VERIFIED_ACTIONS.includes(action)) {
+    if (!session?.user?.id || session.user.id !== userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
 
   if (HOST_ONLY_ACTIONS.includes(action) || PRIVILEGED_ACTIONS.includes(action)) {
     const room = await getRoom(roomId);
