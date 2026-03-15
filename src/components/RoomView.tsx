@@ -30,9 +30,9 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const syncState = useTimerStore((s) => s.syncState);
   const setRoomContext = useTimerStore((s) => s.setRoomContext);
   const timerPhase = useTimerStore((s) => s.phase);
-  const currentIntention = useTimerStore((s) => s.currentIntention);
+  const currentIntention = useTimerStore((s) => s.roomCurrentIntention);
   const pendingReflection = useTimerStore((s) => s.pendingReflection);
-  const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
+  const clearCurrentIntention = useTimerStore((s) => s.clearRoomCurrentIntention);
   const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
   const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
   const pendingInterruptPrompt = useTimerStore((s) => s.pendingInterruptPrompt);
@@ -354,7 +354,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         timeRemaining: s.settings.workDuration * 60,
         startedAt: null,
         elapsed: 0,
-        currentIntention: "",
+        roomCurrentIntention: "",
         pendingReflection: false,
         lastCompletedSessionId: null,
         pendingInterruptPrompt: null,

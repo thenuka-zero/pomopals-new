@@ -33,7 +33,8 @@ interface TimerState {
   isRemoteTransition: boolean;
 
   // Intentions state
-  currentIntention: string;
+  currentIntention: string;       // solo timer intention (persisted)
+  roomCurrentIntention: string;   // room intention (not persisted, isolated per tab)
   pendingReflection: boolean;
   lastCompletedIntentionId: string | null;
   lastCompletedSessionId: string | null;
@@ -58,6 +59,8 @@ interface TimerState {
   // Intentions actions
   setCurrentIntention: (text: string) => void;
   clearCurrentIntention: () => void;
+  setRoomCurrentIntention: (text: string) => void;
+  clearRoomCurrentIntention: () => void;
   setPendingReflection: (value: boolean) => void;
 
   // Room context
@@ -119,6 +122,7 @@ export const useTimerStore = create<TimerState>()(
       hydratedAsExpired: false,
       isRemoteTransition: false,
       currentIntention: "",
+      roomCurrentIntention: "",
       pendingReflection: false,
       lastCompletedIntentionId: null,
       lastCompletedSessionId: null,
@@ -304,6 +308,8 @@ export const useTimerStore = create<TimerState>()(
 
       setCurrentIntention: (text) => set({ currentIntention: text }),
       clearCurrentIntention: () => set({ currentIntention: "", lastCompletedIntentionId: null }),
+      setRoomCurrentIntention: (text) => set({ roomCurrentIntention: text }),
+      clearRoomCurrentIntention: () => set({ roomCurrentIntention: "" }),
       setPendingReflection: (value) => set({ pendingReflection: value }),
       setRoomContext: (roomId, participantCount) => set({ roomId, roomParticipantCount: participantCount }),
     }),

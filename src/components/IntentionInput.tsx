@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { useTimerStore } from "@/store/timer-store";
 
 export default function IntentionInput() {
-  const currentIntention = useTimerStore((s) => s.currentIntention);
-  const setCurrentIntention = useTimerStore((s) => s.setCurrentIntention);
+  const currentIntention = useTimerStore((s) => s.roomCurrentIntention);
+  const setCurrentIntention = useTimerStore((s) => s.setRoomCurrentIntention);
   const status = useTimerStore((s) => s.status);
   const phase = useTimerStore((s) => s.phase);
   const [showInput, setShowInput] = useState(false);
