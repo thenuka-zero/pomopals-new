@@ -4,6 +4,13 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-03-15
+
+### Fixed
+- Reflection modal now appears when skipping or resetting a Pomodoro early — previously it only showed on natural completion or "Done"
+- Discard button now appears on sessions in the Recent Sessions list on the analytics dashboard
+- Discard and delete buttons in the intentions journal and dashboard are now always visible instead of hidden until hover
+
 ## [0.2.2] - 2026-03-15
 
 ### Fixed
