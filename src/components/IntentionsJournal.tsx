@@ -320,7 +320,7 @@ export default function IntentionsJournal() {
                             ) : (
                               <button
                                 onClick={() => setConfirmDeleteId(item.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+                                className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
                                 title="Delete intention"
                                 aria-label="Delete intention"
                               >

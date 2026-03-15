@@ -170,7 +170,7 @@ function SessionRow({ session, onDiscard }: { session: PomodoroSession; onDiscar
         ) : (
           <button
             onClick={() => setConfirmDiscard(true)}
-            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-[#C0A880] hover:text-[#E54B4B]"
+            className="ml-1 opacity-40 hover:opacity-100 transition-opacity text-[#C0A880] hover:text-[#E54B4B]"
             title="Discard this session"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
