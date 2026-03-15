@@ -4,6 +4,15 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-03-15
+
+### Fixed
+- Reflection modal now appears for non-host participants in group rooms — confirming an intention mid-session now correctly creates the intention record needed to trigger the reflection when the Pomodoro ends
+- Room settings (work/break durations) are now synced to all participants via polling, so the timer progress circle and Pomodoro dots stay accurate after the host changes settings
+
+### Added
+- Room Settings panel (host and co-hosts only): collapse/expand to adjust work duration, short break, long break, long break interval, and auto-start breaks for the current room
+
 ## [0.2.5] - 2026-03-15
 
 ### Fixed

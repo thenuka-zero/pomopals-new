@@ -273,6 +273,15 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   await persistRoom(room);
 }
 
+export async function updateRoomSettings(roomId: string, settings: Partial<TimerSettings>): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  room.settings = { ...room.settings, ...settings };
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
 export async function setParticipantIntention(roomId: string, userId: string, intention: string): Promise<Room | undefined> {
   const room = await getRoom(roomId);
   if (!room) return undefined;

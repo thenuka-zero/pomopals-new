@@ -15,6 +15,7 @@ import {
   removeCoHost,
   isPrivileged,
   setParticipantIntention,
+  updateRoomSettings,
 } from "@/lib/rooms";
 import { auth } from "@/lib/auth";
 import { checkAchievements } from "@/lib/achievement-checker";
@@ -40,7 +41,7 @@ export async function POST(
   const body = await request.json();
   const { action, userId, userName } = body;
 
-  const HOST_ONLY_ACTIONS = ["end", "transfer-host", "add-cohost", "remove-cohost"];
+  const HOST_ONLY_ACTIONS = ["end", "transfer-host", "add-cohost", "remove-cohost", "update-settings"];
   const PRIVILEGED_ACTIONS = ["start", "pause", "reset", "skip"];
   // Actions that require the request body's userId to match the authenticated session
   const SESSION_VERIFIED_ACTIONS = [...HOST_ONLY_ACTIONS, ...PRIVILEGED_ACTIONS, "reclaim-host", "set-intention"];
@@ -136,6 +137,12 @@ export async function POST(
     case "remove-cohost": {
       const { targetUserId } = body;
       const room = await removeCoHost(roomId, userId, targetUserId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
+    }
+    case "update-settings": {
+      const { settings } = body;
+      const room = await updateRoomSettings(roomId, settings ?? {});
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }

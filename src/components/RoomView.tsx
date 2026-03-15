@@ -27,7 +27,11 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const [copied, setCopied] = useState(false);
   const [failCount, setFailCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
+  const [showRoomSettings, setShowRoomSettings] = useState(false);
+  const [draftSettings, setDraftSettings] = useState<{ workDuration: number; shortBreakDuration: number; longBreakDuration: number; longBreakInterval: number; autoStartBreaks: boolean } | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
   const syncState = useTimerStore((s) => s.syncState);
+  const updateSettings = useTimerStore((s) => s.updateSettings);
   const setRoomContext = useTimerStore((s) => s.setRoomContext);
   const timerPhase = useTimerStore((s) => s.phase);
   const currentIntention = useTimerStore((s) => s.roomCurrentIntention);
@@ -125,6 +129,8 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       const data: RoomResponse = await res.json();
       setRoom(data);
       setFailCount(0);
+      // Sync room settings into local timer store so the progress circle and dots stay accurate
+      updateSettings(data.settings);
 
       const newPhase = data.timerState.phase;
       const newTimeRemaining = data.timerState.timeRemaining;
@@ -246,7 +252,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     } catch {
       setFailCount((c) => c + 1);
     }
-  }, [roomId, syncState, notifyPhaseComplete, userId, fetchJoinRequests, clearCurrentIntention]);
+  }, [roomId, syncState, updateSettings, notifyPhaseComplete, userId, fetchJoinRequests, clearCurrentIntention]);
 
   // Join on mount
   useEffect(() => {
@@ -620,11 +626,29 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
             session?.user && intentionsEnabled ? (
               <IntentionInput
                 onConfirm={(text) => {
+                  // Update the room participant's intention display
                   fetch(`/api/rooms/${roomId}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "set-intention", userId, intention: text }),
                   }).catch(() => {});
+                  // Create an intention record if not already tracking one,
+                  // so the reflection modal fires when the session ends
+                  if (!intentionIdRef.current && session?.user) {
+                    const newId = crypto.randomUUID();
+                    setIntentionId(newId);
+                    intentionIdRef.current = newId;
+                    fetch("/api/intentions", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        id: newId,
+                        text,
+                        startedAt: new Date().toISOString(),
+                        date: new Date().toISOString().slice(0, 10),
+                      }),
+                    }).catch(() => {});
+                  }
                 }}
               />
             ) : undefined
@@ -637,6 +661,96 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         <p className="text-sm text-[#A08060] font-semibold -mt-4">
           The host controls the timer
         </p>
+      )}
+
+      {/* Room settings — host/co-host only */}
+      {isPrivilegedUser && (
+        <div className="w-full max-w-sm">
+          <button
+            onClick={() => {
+              if (!showRoomSettings) {
+                setDraftSettings({
+                  workDuration: room.settings.workDuration,
+                  shortBreakDuration: room.settings.shortBreakDuration,
+                  longBreakDuration: room.settings.longBreakDuration,
+                  longBreakInterval: room.settings.longBreakInterval,
+                  autoStartBreaks: room.settings.autoStartBreaks,
+                });
+              }
+              setShowRoomSettings((v) => !v);
+            }}
+            className="flex items-center gap-2 text-sm font-semibold text-[#8B7355] hover:text-[#E54B4B] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Room Settings
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showRoomSettings ? "rotate-180" : ""}`}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {showRoomSettings && draftSettings && (
+            <div className="mt-3 bg-white border-2 border-[#F0E6D3] rounded-2xl p-4 space-y-3">
+              {(
+                [
+                  { label: "Work", key: "workDuration", min: 1, max: 60 },
+                  { label: "Short Break", key: "shortBreakDuration", min: 1, max: 30 },
+                  { label: "Long Break", key: "longBreakDuration", min: 1, max: 60 },
+                  { label: "Long Break Every", key: "longBreakInterval", min: 1, max: 10, suffix: "sessions" },
+                ] as { label: string; key: keyof typeof draftSettings; min: number; max: number; suffix?: string }[]
+              ).map(({ label, key, min, max, suffix }) => (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[#5C4033] font-semibold w-32 shrink-0">{label}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDraftSettings((d) => d ? { ...d, [key]: Math.max(min, (d[key] as number) - 1) } : d)}
+                      className="w-7 h-7 rounded-full bg-[#F0E6D3] text-[#5C4033] font-bold text-base flex items-center justify-center hover:bg-[#E8D5C4] transition-colors"
+                    >−</button>
+                    <span className="w-8 text-center text-sm font-bold text-[#3D2C2C] tabular-nums">{draftSettings[key] as number}</span>
+                    <button
+                      onClick={() => setDraftSettings((d) => d ? { ...d, [key]: Math.min(max, (d[key] as number) + 1) } : d)}
+                      className="w-7 h-7 rounded-full bg-[#F0E6D3] text-[#5C4033] font-bold text-base flex items-center justify-center hover:bg-[#E8D5C4] transition-colors"
+                    >+</button>
+                    <span className="text-xs text-[#A08060]">{suffix ?? "min"}</span>
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#5C4033] font-semibold">Auto-start Breaks</span>
+                <button
+                  onClick={() => setDraftSettings((d) => d ? { ...d, autoStartBreaks: !d.autoStartBreaks } : d)}
+                  className={`w-10 h-6 rounded-full transition-colors relative ${draftSettings.autoStartBreaks ? "bg-[#E54B4B]" : "bg-[#E8D5C4]"}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${draftSettings.autoStartBreaks ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              <button
+                disabled={savingSettings}
+                onClick={async () => {
+                  if (!draftSettings) return;
+                  setSavingSettings(true);
+                  try {
+                    await fetch(`/api/rooms/${roomId}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "update-settings", userId, settings: draftSettings }),
+                    });
+                    await fetchRoom();
+                    setShowRoomSettings(false);
+                  } finally {
+                    setSavingSettings(false);
+                  }
+                }}
+                className="w-full py-2 rounded-xl bg-[#E54B4B] text-white text-sm font-bold hover:bg-[#D43D3D] transition-colors disabled:opacity-50"
+              >
+                {savingSettings ? "Saving…" : "Save Settings"}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Participants */}
