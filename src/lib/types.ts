@@ -103,6 +103,7 @@ export interface Participant {
   id: string;
   name: string;
   joinedAt: string;
+  intention?: string;
 }
 
 // ─── Friend Relationships ─────────────────────────────────────────────────────

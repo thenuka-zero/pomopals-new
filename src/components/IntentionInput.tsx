@@ -1,14 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useTimerStore } from "@/store/timer-store";
 
-export default function IntentionInput() {
+interface IntentionInputProps {
+  onConfirm?: (text: string) => void;
+}
+
+export default function IntentionInput({ onConfirm }: IntentionInputProps) {
   const currentIntention = useTimerStore((s) => s.roomCurrentIntention);
   const setCurrentIntention = useTimerStore((s) => s.setRoomCurrentIntention);
   const status = useTimerStore((s) => s.status);
   const phase = useTimerStore((s) => s.phase);
-  const [showInput, setShowInput] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // During work phase running: show read-only (can't edit mid-session)
@@ -26,7 +29,6 @@ export default function IntentionInput() {
 
   // During a running break or idle/paused: show the editable UI
   const canShow = status === "idle" || status === "paused" || (status === "running" && phase !== "work");
-
   if (!canShow) return null;
 
   const charCount = currentIntention.length;
@@ -38,47 +40,6 @@ export default function IntentionInput() {
     el.style.height = el.scrollHeight + "px";
   };
 
-  const handleConfirm = () => {
-    if (!currentIntention.trim()) return;
-    setShowInput(false);
-  };
-
-  const PencilIcon = () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-
-  // Closed state — show pencil icon (+ intention preview if one is set)
-  if (!showInput) {
-    return (
-      <div className="flex items-center justify-center gap-2">
-        <button
-          onClick={() => {
-            setShowInput(true);
-            setTimeout(() => inputRef.current?.focus(), 0);
-          }}
-          title="Set intention"
-          aria-label="Set intention"
-          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-            currentIntention.trim()
-              ? "bg-green-100 text-green-700 border border-green-200 hover:bg-green-200"
-              : "bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20"
-          }`}
-        >
-          <PencilIcon />
-        </button>
-        {currentIntention.trim() && (
-          <span className="text-sm text-[#5C4033] italic break-words line-clamp-2">
-            {currentIntention}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  // Open state — show textarea + confirm button
   return (
     <div className="w-full">
       <div className="flex gap-2 items-start">
@@ -95,13 +56,7 @@ export default function IntentionInput() {
           }}
           onInput={(e) => autoResize(e.currentTarget)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleConfirm();
-            }
-            if (e.key === "Escape") {
-              setShowInput(false);
-            }
+            if (e.key === "Enter") e.preventDefault();
           }}
           placeholder="What will you focus on?"
           className={`
@@ -114,8 +69,8 @@ export default function IntentionInput() {
           `}
         />
         <button
-          onClick={handleConfirm}
           disabled={!currentIntention.trim()}
+          onClick={() => onConfirm?.(currentIntention.trim())}
           title="Confirm intention"
           aria-label="Confirm intention"
           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20 disabled:opacity-30 disabled:cursor-not-allowed"

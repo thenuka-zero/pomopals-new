@@ -4,6 +4,16 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-03-15
+
+### Fixed
+- Refreshing a group room no longer causes you to lose host status — stale leave beacons sent before the page reload are now ignored
+- Co-host assignments are now properly removed when a participant leaves a room
+- Room timer phase transitions (e.g. work → break) are now persisted to the database immediately, so rejoining participants see the correct phase
+
+### Added
+- Group room participants list now shows each member's current intention below their name
+
 ## [0.2.3] - 2026-03-15
 
 ### Fixed

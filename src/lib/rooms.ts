@@ -201,7 +201,12 @@ export async function getRoom(roomId: string): Promise<Room | undefined> {
   const [row] = await db.select().from(roomsTable).where(eq(roomsTable.id, roomId)).limit(1);
   if (!row) return undefined;
   const room = rowToRoom(row);
+  const wasRunning = room.timerState.status === "running";
   resolvePhaseTransitions(room);
+  // Persist phase transitions so the DB doesn't stay permanently stale
+  if (wasRunning && room.timerState.status !== "running") {
+    await persistRoom(room);
+  }
   return room;
 }
 
@@ -241,8 +246,17 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const room = await getRoom(roomId);
   if (!room) return;
 
+  const participant = room.participants.find((p) => p.id === userId);
+  // Stale beacon guard: if the participant rejoined in the last 10 s, this leave
+  // beacon was sent before a page refresh and arrived late — ignore it.
+  if (participant) {
+    const joinedMs = new Date(participant.joinedAt).getTime();
+    if (Date.now() - joinedMs < 10_000) return;
+  }
+
   const wasHost = room.hostId === userId;
   room.participants = room.participants.filter((p) => p.id !== userId);
+  room.coHostIds = room.coHostIds.filter((id) => id !== userId);
 
   if (room.participants.length === 0) {
     await db.delete(roomsTable).where(eq(roomsTable.id, roomId));
@@ -257,6 +271,17 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
 
   touch(room);
   await persistRoom(room);
+}
+
+export async function setParticipantIntention(roomId: string, userId: string, intention: string): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  const participant = room.participants.find((p) => p.id === userId);
+  if (!participant) return undefined;
+  participant.intention = intention || undefined;
+  touch(room);
+  await persistRoom(room);
+  return room;
 }
 
 export async function endRoom(roomId: string): Promise<void> {

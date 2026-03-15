@@ -618,7 +618,15 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           onSkip={handleRoomSkip}
           controlSlot={
             session?.user && intentionsEnabled ? (
-              <IntentionInput />
+              <IntentionInput
+                onConfirm={(text) => {
+                  fetch(`/api/rooms/${roomId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "set-intention", userId, intention: text }),
+                  }).catch(() => {});
+                }}
+              />
             ) : undefined
           }
         />
@@ -646,7 +654,12 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
                 <div className="w-8 h-8 rounded-full bg-[#E54B4B] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                   {p.name[0].toUpperCase()}
                 </div>
-                <span className="text-[#3D2C2C] text-sm font-semibold truncate">{p.name}</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[#3D2C2C] text-sm font-semibold truncate block">{p.name}</span>
+                  {p.intention && (
+                    <span className="text-xs text-[#8B7355] italic truncate block">💭 {p.intention}</span>
+                  )}
+                </div>
                 <div className="ml-auto flex items-center gap-2 flex-shrink-0">
                   {isParticipantHost && (
                     <span className="text-xs text-[#E54B4B] font-bold">Host</span>

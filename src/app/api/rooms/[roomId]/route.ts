@@ -14,6 +14,7 @@ import {
   addCoHost,
   removeCoHost,
   isPrivileged,
+  setParticipantIntention,
 } from "@/lib/rooms";
 import { auth } from "@/lib/auth";
 import { checkAchievements } from "@/lib/achievement-checker";
@@ -127,6 +128,12 @@ export async function POST(
     case "remove-cohost": {
       const { targetUserId } = body;
       const room = await removeCoHost(roomId, userId, targetUserId);
+      if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return NextResponse.json(toRoomResponse(room));
+    }
+    case "set-intention": {
+      const { intention } = body;
+      const room = await setParticipantIntention(roomId, userId, intention ?? "");
       if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
       return NextResponse.json(toRoomResponse(room));
     }
