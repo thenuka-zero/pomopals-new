@@ -296,6 +296,13 @@ export default function CompactTimer() {
   }, [currentIntention, session?.user, intentionId, start]);
 
   const handleSkip = useCallback(() => {
+    if (intentionId) {
+      // Always show reflection modal when there's an active intention
+      setPendingReflection(true);
+      skip();
+      return;
+    }
+    // No intention: use interrupt prompt for long sessions
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -316,22 +323,21 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        const capturedIntentionId = intentionId;
-        setIntentionId(null);
-        clearCurrentIntention();
-        skip({ deferAnalytics: true, deferredSession, intentionId: capturedIntentionId });
+        skip({ deferAnalytics: true, deferredSession, intentionId: null });
         return;
       }
-    }
-    if (intentionId) {
-      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      clearCurrentIntention();
     }
     skip();
-  }, [intentionId, clearCurrentIntention, skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
+  }, [intentionId, setPendingReflection, skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handleReset = useCallback(() => {
+    if (intentionId) {
+      // Always show reflection modal when there's an active intention
+      setPendingReflection(true);
+      reset();
+      return;
+    }
+    // No intention: use interrupt prompt for long sessions
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -352,20 +358,12 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        const capturedIntentionId = intentionId;
-        setIntentionId(null);
-        clearCurrentIntention();
-        reset({ deferAnalytics: true, deferredSession, intentionId: capturedIntentionId });
+        reset({ deferAnalytics: true, deferredSession, intentionId: null });
         return;
       }
     }
-    if (intentionId) {
-      fetch(`/api/intentions/${intentionId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      clearCurrentIntention();
-    }
     reset();
-  }, [intentionId, clearCurrentIntention, reset, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
+  }, [intentionId, setPendingReflection, reset, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handlePlayPause = useCallback(() => {
     if (status === "idle") {
@@ -730,6 +728,7 @@ export default function CompactTimer() {
           onClose={() => {
             setPendingReflection(false);
             setIntentionId(null);
+            clearCurrentIntention();
           }}
         />
       )}
