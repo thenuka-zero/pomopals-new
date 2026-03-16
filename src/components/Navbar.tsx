@@ -137,7 +137,7 @@ export default function Navbar() {
                 </Link>
                 <div className="flex items-center gap-3 ml-3">
                   <span className="text-sm text-[#8B7355] font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
-                  <Link href="/profile" title="Profile" className={`rounded-full transition-all ring-2 ${pathname === "/profile" ? "ring-[#E54B4B]" : "ring-transparent hover:ring-[#E54B4B]/40"}`}>
+                  <Link href="/profile" title="Profile" className={`flex-shrink-0 w-[30px] h-[30px] rounded-full overflow-hidden transition-all ring-2 ${pathname === "/profile" ? "ring-[#E54B4B]" : "ring-transparent hover:ring-[#E54B4B]/40"}`}>
                     <InitialsAvatar name={session.user?.name ?? "?"} size={30} />
                   </Link>
                   <button

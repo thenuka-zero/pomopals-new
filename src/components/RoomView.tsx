@@ -867,7 +867,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       )}
 
       {/* Intention reflection modal */}
-      {pendingReflection && roomTaskList.length > 0 && roomSessionGroupId && session?.user && intentionsEnabled && (
+      {pendingReflection && roomTaskList.length > 0 && roomSessionGroupId && session?.user?.emailVerified && intentionsEnabled && (
         <IntentionReflectionModal
           tasks={roomTaskList}
           sessionGroupId={roomSessionGroupId}

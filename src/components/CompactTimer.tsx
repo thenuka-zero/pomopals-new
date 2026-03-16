@@ -653,7 +653,7 @@ export default function CompactTimer() {
           onDiscard={() => resolveInterruptPrompt(false)}
         />
       )}
-      {pendingReflection && taskList.length > 0 && sessionGroupId && session?.user && intentionsEnabled && (
+      {pendingReflection && taskList.length > 0 && sessionGroupId && session?.user?.emailVerified && intentionsEnabled && (
         <IntentionReflectionModal
           tasks={taskList}
           sessionGroupId={sessionGroupId}

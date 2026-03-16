@@ -44,6 +44,9 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!session.user.emailVerified) {
+    return NextResponse.json({ error: "Email not verified" }, { status: 403 });
+  }
   const userId = session.user.id;
   const { intentionId } = await params;
 

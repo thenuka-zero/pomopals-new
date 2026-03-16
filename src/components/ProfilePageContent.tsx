@@ -71,6 +71,7 @@ export default function ProfilePageContent() {
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   // Global banner (email changed successfully)
   const emailChanged = searchParams.get("emailChanged") === "true";
@@ -127,8 +128,11 @@ export default function ProfilePageContent() {
           setProfile(data.profile);
           setNameDraft(data.profile.name);
           prevAvatarRef.current = data.profile.avatarUrl;
+        } else {
+          setFetchError(true);
         }
       })
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -344,7 +348,13 @@ export default function ProfilePageContent() {
     );
   }
 
-  if (!profile) return null;
+  if (fetchError || !profile) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <p className="text-sm text-[#E54B4B]">Failed to load profile. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   const memberSince = new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
