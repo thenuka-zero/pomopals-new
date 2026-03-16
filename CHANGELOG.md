@@ -4,6 +4,25 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-16
+
+### Added
+- **Multi-task list** replaces the single intention input — add as many tasks as you want before or during a session
+- Tasks can be checked off mid-Pomodoro without interrupting the timer
+- Session grouping: all tasks from one session are shown together as a block in the journal and dashboard
+- New `POST /api/intentions/batch` endpoint to save multiple tasks in a single transaction
+- New `POST /api/intentions/batch-skip` endpoint to mark all pending tasks as skipped when resetting or ending early
+- Group rooms: each participant can now maintain their own task list, visible on their participant card
+- Reflection modal now shows all tasks from the session with individual done/not-done toggles
+
+### Changed
+- Intentions journal and dashboard now group tasks by session block (timestamp + task list) instead of individual rows
+- Room participant cards show a task list with status icons instead of a single intention text
+- Tasks persist across Pomodoro phases (break, long break) and are only cleared on explicit reset or completion
+
+### Removed
+- Single-text intention input replaced by the new task list
+
 ## [0.2.0] - 2026-03-15
 
 ### Fixed
