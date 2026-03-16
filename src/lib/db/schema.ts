@@ -4,13 +4,18 @@ import { sql } from "drizzle-orm";
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = sqliteTable("users", {
-  id:            text("id").primaryKey(),                    // crypto.randomUUID()
-  name:          text("name").notNull(),
-  email:         text("email").notNull().unique(),
-  passwordHash:  text("password_hash").notNull(),            // "salt:hash" from scrypt
-  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
-  createdAt:     text("created_at").notNull(),               // ISO 8601
-  updatedAt:     text("updated_at").notNull(),               // ISO 8601
+  id:                    text("id").primaryKey(),                    // crypto.randomUUID()
+  name:                  text("name").notNull(),
+  email:                 text("email").notNull().unique(),
+  passwordHash:          text("password_hash").notNull(),            // "salt:hash" from scrypt
+  emailVerified:         integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  createdAt:             text("created_at").notNull(),               // ISO 8601
+  updatedAt:             text("updated_at").notNull(),               // ISO 8601
+  avatarUrl:             text("avatar_url"),
+  allowFriendRequests:   integer("allow_friend_requests", { mode: "boolean" }).notNull().default(true),
+  pendingEmail:          text("pending_email"),
+  pendingEmailToken:     text("pending_email_token").unique(),
+  pendingEmailExpiresAt: text("pending_email_expires_at"),
 });
 
 // ─── Email Verification Tokens ────────────────────────────────────────────────

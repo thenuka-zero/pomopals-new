@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
 import { useFriendsStore } from "@/store/friends-store";
+import InitialsAvatar from "./InitialsAvatar";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -136,6 +137,9 @@ export default function Navbar() {
                 </Link>
                 <div className="flex items-center gap-3 ml-3">
                   <span className="text-sm text-[#8B7355] font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
+                  <Link href="/profile" title="Profile" className={`rounded-full transition-all ring-2 ${pathname === "/profile" ? "ring-[#E54B4B]" : "ring-transparent hover:ring-[#E54B4B]/40"}`}>
+                    <InitialsAvatar name={session.user?.name ?? "?"} size={30} />
+                  </Link>
                   <button
                     onClick={() => signOut()}
                     className="text-sm text-[#A08060] hover:text-[#E54B4B] transition-colors"
@@ -216,6 +220,9 @@ export default function Navbar() {
                 </MobileNavLink>
                 <MobileNavLink href="/friends" active={pathname === "/friends"}>
                   👥 Friends{pendingRequestCount > 0 ? ` (${pendingRequestCount})` : ""}
+                </MobileNavLink>
+                <MobileNavLink href="/profile" active={pathname === "/profile"}>
+                  👤 Profile
                 </MobileNavLink>
                 <div className="pt-1 mt-1 border-t border-[#F0E6D3]">
                   <button

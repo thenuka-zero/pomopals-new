@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  if (recipient.allowFriendRequests === false) {
+    return NextResponse.json({ error: "This user is not accepting friend requests" }, { status: 403 });
+  }
+
   const theirId = recipient.id;
 
   // Check if already friends

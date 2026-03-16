@@ -6,6 +6,24 @@ export interface User {
   emailVerified: boolean;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
+  avatarUrl: string | null;
+  allowFriendRequests: boolean;
+  pendingEmail: string | null;
+}
+
+export interface ProfileData {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  allowFriendRequests: boolean;
+  emailVerified: boolean;
+  pendingEmail: string | null;
+  createdAt: string;
+  isOAuthOnly: boolean;
+  totalPomodoros: number;
+  totalFriends: number;
+  achievementsUnlocked: number;
 }
 
 export type AnalyticsPeriod = "day" | "week" | "month";
