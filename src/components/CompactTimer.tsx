@@ -9,6 +9,7 @@ import CreateRoomModal from "@/components/CreateRoomModal";
 import JoinRoomModal from "@/components/JoinRoomModal";
 import IntentionReflectionModal from "@/components/IntentionReflectionModal";
 import InterruptPromptModal from "@/components/InterruptPromptModal";
+import TaskList from "@/components/TaskList";
 import { v4 as uuidv4 } from "uuid";
 import { useRouter } from "next/navigation";
 import { PomodoroSession } from "@/lib/types";
@@ -19,9 +20,8 @@ export default function CompactTimer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
-  const [showIntentionInput, setShowIntentionInput] = useState(false);
+  const [showTaskInput, setShowTaskInput] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [intentionId, setIntentionId] = useState<string | null>(null);
   const [intentionsEnabled, setIntentionsEnabled] = useState(true);
 
   const {
@@ -47,16 +47,19 @@ export default function CompactTimer() {
   } = useTimerStore();
 
   const sessionRunId = useTimerStore((s) => s.sessionRunId);
-
-  const currentIntention = useTimerStore((s) => s.currentIntention);
-  const setCurrentIntention = useTimerStore((s) => s.setCurrentIntention);
+  const taskList = useTimerStore((s) => s.taskList);
+  const sessionGroupId = useTimerStore((s) => s.sessionGroupId);
+  const setSessionGroupId = useTimerStore((s) => s.setSessionGroupId);
+  const clearTaskList = useTimerStore((s) => s.clearTaskList);
   const pendingReflection = useTimerStore((s) => s.pendingReflection);
-  const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
   const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
   const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
 
   const roomId = useTimerStore((s) => s.roomId);
   const roomParticipantCount = useTimerStore((s) => s.roomParticipantCount);
+
+  // Track whether we've already saved this session group to the API
+  const savedSessionGroupRef = useRef<string | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { requestPermission, notifyPhaseComplete, notifyHydratedExpired } = useNotifications();
@@ -164,19 +167,6 @@ export default function CompactTimer() {
       .catch(() => {});
   }, [session?.user]);
 
-  // Clear intentionId when leaving work phase and not pending reflection
-  useEffect(() => {
-    if (phase !== "work" && !pendingReflection) {
-      setIntentionId(null);
-      clearCurrentIntention();
-    }
-    // If work completed without an intention, clear the stuck pendingReflection
-    if (pendingReflection && !intentionId && phase !== "work") {
-      setPendingReflection(false);
-      clearCurrentIntention();
-    }
-  }, [phase, pendingReflection, intentionId, setPendingReflection, clearCurrentIntention]);
-
   // Block browser unload when an interrupt prompt is pending
   useEffect(() => {
     if (!pendingInterruptPrompt) return;
@@ -190,10 +180,8 @@ export default function CompactTimer() {
   // Record partial sessions when user navigates away + clear presence beacon
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // If an interrupt prompt is pending, skip the beacon to avoid double-counting
       const s = useTimerStore.getState();
       if (s.pendingInterruptPrompt) return;
-      // Read fresh state from the store to avoid stale closures
       if (s.status === "running" && s.phase === "work" && session?.user?.id) {
         const totalDuration = s.settings.workDuration * 60;
         const elapsed = totalDuration - s.timeRemaining;
@@ -224,7 +212,6 @@ export default function CompactTimer() {
           );
         }
       }
-      // Always clear presence on page unload
       if (session?.user?.id) {
         navigator.sendBeacon(
           "/api/presence",
@@ -268,41 +255,45 @@ export default function CompactTimer() {
   const trackStroke = isWork ? "#F5D0D0" : "#D0EDBC";
   const phaseColorClass = isWork ? "text-[#E54B4B]" : "text-[#6EAE3E]";
 
-  // Small circular progress for compact view
   const compactRadius = 28;
   const compactCircumference = 2 * Math.PI * compactRadius;
   const compactStrokeDashoffset =
     compactCircumference - (progress / 100) * compactCircumference;
 
-  const handleStart = useCallback(() => {
-    // Create intention if text is set, user is authenticated, and no intention already created
-    if (currentIntention.trim() && session?.user && !intentionId) {
-      const newId = crypto.randomUUID();
-      setIntentionId(newId);
-      // Fire and forget — never block the timer
-      fetch("/api/intentions", {
+  const handleStart = useCallback(async () => {
+    // start() in store: generates sessionGroupId and marks tasks in_progress
+    start();
+    // After start(), check if we need to batch-save tasks to API
+    const s = useTimerStore.getState();
+    const sgId = s.sessionGroupId;
+    if (
+      session?.user &&
+      s.taskList.length > 0 &&
+      sgId &&
+      savedSessionGroupRef.current !== sgId
+    ) {
+      savedSessionGroupRef.current = sgId;
+      fetch("/api/intentions/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: newId,
-          text: currentIntention.trim(),
-          startedAt: new Date().toISOString(),
-          date: new Date().toISOString().slice(0, 10),
+          tasks: s.taskList.map((t) => ({
+            id: t.id,
+            text: t.text,
+            startedAt: new Date().toISOString(),
+            date: new Date().toISOString().slice(0, 10),
+          })),
+          sessionGroupId: sgId,
         }),
       }).catch(() => {});
     }
-    setShowIntentionInput(false);
-    start();
-  }, [currentIntention, session?.user, intentionId, start]);
+    setShowTaskInput(false);
+    playStartSound();
+  }, [session?.user, start]);
 
   const handleSkip = useCallback(() => {
-    if (intentionId) {
-      // Always show reflection modal when there's an active intention
-      setPendingReflection(true);
-      skip();
-      return;
-    }
-    // No intention: use interrupt prompt for long sessions
+    const s = useTimerStore.getState();
+    // No task status changes on skip (task list persists across phases)
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -323,21 +314,25 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        skip({ deferAnalytics: true, deferredSession, intentionId: null });
+        skip({ deferAnalytics: true, deferredSession, sessionGroupId: s.sessionGroupId });
         return;
       }
     }
     skip();
-  }, [intentionId, setPendingReflection, skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
+  }, [skip, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handleReset = useCallback(() => {
-    if (intentionId) {
-      // Always show reflection modal when there's an active intention
-      setPendingReflection(true);
-      reset();
-      return;
+    const s = useTimerStore.getState();
+    const sgId = s.sessionGroupId;
+    // Batch-skip pending tasks in this group before resetting
+    if (session?.user && sgId) {
+      fetch("/api/intentions/batch-skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionGroupId: sgId }),
+      }).catch(() => {});
+      savedSessionGroupRef.current = null;
     }
-    // No intention: use interrupt prompt for long sessions
     if (
       session?.user?.id &&
       phase === "work" &&
@@ -358,18 +353,17 @@ export default function CompactTimer() {
           completionPercentage: Math.round((elapsed / (settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
-        reset({ deferAnalytics: true, deferredSession, intentionId: null });
+        reset({ deferAnalytics: true, deferredSession, sessionGroupId: sgId });
         return;
       }
     }
     reset();
-  }, [intentionId, setPendingReflection, reset, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
+  }, [reset, session?.user, session?.user?.id, phase, currentSessionStart, status, settings.workDuration, timeRemaining]);
 
   const handlePlayPause = useCallback(() => {
     if (status === "idle") {
       requestPermission();
       unlockAudioContext();
-      playStartSound();
       handleStart();
     } else if (status === "running") {
       pause();
@@ -382,19 +376,30 @@ export default function CompactTimer() {
     completeEarly();
   }, [completeEarly]);
 
+  const handleReflectionClose = useCallback(() => {
+    setPendingReflection(false);
+    clearTaskList();
+    savedSessionGroupRef.current = null;
+  }, [setPendingReflection, clearTaskList]);
+
+  // Clear pending reflection if no tasks are set (no tasks to reflect on)
+  useEffect(() => {
+    if (pendingReflection && taskList.length === 0) {
+      setPendingReflection(false);
+    }
+  }, [pendingReflection, taskList.length, setPendingReflection]);
+
   const userId =
     session?.user?.id || "guest-" + Math.random().toString(36).slice(2);
   const userName = session?.user?.name || "Guest";
 
-  // Show intention icon when: user is logged in, intentions enabled, not running, work phase
-  const showIntentionIcon =
-    session?.user && intentionsEnabled && status !== "running" && phase === "work";
+  // Show task list icon when: user is logged in, intentions enabled, not running work phase
+  const showTaskIcon =
+    session?.user && intentionsEnabled && !(status === "running" && phase === "work");
 
-  // Show active intention display whenever an intention is set and the input isn't open
-  const showActiveIntention = !!currentIntention && !showIntentionInput;
-
-  const charCount = currentIntention.length;
-  const isOverLimit = charCount > 280;
+  // Show task list when the icon is clicked or we have tasks
+  const showTaskListSection =
+    session?.user && intentionsEnabled && (showTaskInput || taskList.length > 0);
 
   return (
     <>
@@ -433,7 +438,6 @@ export default function CompactTimer() {
                   className="transition-all duration-1000 ease-linear"
                 />
               </svg>
-              {/* Tiny phase dot in center */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
                   className={`w-3 h-3 rounded-full ${
@@ -459,21 +463,25 @@ export default function CompactTimer() {
               </div>
             </div>
 
-            {/* Intention icon */}
-            {showIntentionIcon && (
+            {/* Task list toggle icon */}
+            {showTaskIcon && (
               <button
-                onClick={() => setShowIntentionInput(!showIntentionInput)}
+                onClick={() => setShowTaskInput(!showTaskInput)}
                 className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                  showIntentionInput || currentIntention
+                  showTaskInput || taskList.length > 0
                     ? "bg-[#E54B4B]/10 text-[#E54B4B]"
                     : "text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0]"
                 }`}
-                title="Set intention"
-                aria-label="Set intention"
+                title="Manage tasks"
+                aria-label="Manage tasks"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <polyline points="3 6 4 7 6 5" />
+                  <polyline points="3 12 4 13 6 11" />
+                  <polyline points="3 18 4 19 6 17" />
                 </svg>
               </button>
             )}
@@ -490,89 +498,22 @@ export default function CompactTimer() {
               aria-label={status === "running" ? "Pause" : "Start"}
             >
               {status === "running" ? (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="6" y="4" width="4" height="16" rx="1" />
                   <rect x="14" y="4" width="4" height="16" rx="1" />
                 </svg>
               ) : (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               )}
             </button>
           </div>
 
-          {/* Intention input — toggled via pencil icon */}
-          {showIntentionInput && showIntentionIcon && (
+          {/* Task list section */}
+          {showTaskListSection && (
             <div className="px-5 pb-3 -mt-1">
-              <div className="flex gap-2 items-start">
-                <textarea
-                  rows={1}
-                  value={currentIntention}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\n/g, "");
-                    if (val.length <= 280) {
-                      setCurrentIntention(val);
-                      const el = e.target;
-                      el.style.height = "auto";
-                      el.style.height = el.scrollHeight + "px";
-                    }
-                  }}
-                  onInput={(e) => {
-                    const el = e.currentTarget;
-                    el.style.height = "auto";
-                    el.style.height = el.scrollHeight + "px";
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (currentIntention.trim()) setShowIntentionInput(false);
-                    }
-                  }}
-                  placeholder="What will you focus on?"
-                  autoFocus
-                  className={`
-                    flex-1 px-3 py-2 rounded-lg text-sm
-                    bg-[#F0E6D3]/40 border
-                    ${isOverLimit ? "border-[#E54B4B]" : "border-[#E8D5C4]"}
-                    text-[#3D2C2C] placeholder-[#A08060]
-                    focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20 focus:border-[#E54B4B]/40
-                    transition-colors resize-none overflow-hidden
-                  `}
-                />
-                <button
-                  onClick={() => setShowIntentionInput(false)}
-                  disabled={!currentIntention.trim()}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E54B4B]/10 text-[#E54B4B] hover:bg-[#E54B4B]/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
-                  title="Set intention"
-                  aria-label="Confirm intention"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Active intention display when running */}
-          {showActiveIntention && (
-            <div className="px-5 pb-3 -mt-1">
-              <div className="px-3 py-2 rounded-lg bg-[#F0E6D3]/50 text-sm text-[#5C4033] flex items-center justify-center gap-2">
-                <span className="text-xs">💭</span>
-                <span className="break-words">{currentIntention}</span>
-              </div>
+              <TaskList mode="solo" />
             </div>
           )}
 
@@ -601,10 +542,8 @@ export default function CompactTimer() {
           {/* Collapsible section */}
           {expanded && (
             <>
-              {/* Divider */}
               <div className="border-t border-[#F0E6D3] mx-5" />
 
-              {/* Bottom icon row */}
               <div className="flex items-center gap-1 px-5 py-2">
                 {/* Settings */}
                 <button
@@ -632,7 +571,7 @@ export default function CompactTimer() {
                   </svg>
                 </button>
 
-                {/* Reset — always visible */}
+                {/* Reset */}
                 <button
                   onClick={handleReset}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0] transition-all"
@@ -645,7 +584,7 @@ export default function CompactTimer() {
                   </svg>
                 </button>
 
-                {/* Finish Early — visible when running a work phase */}
+                {/* Finish Early */}
                 {status === "running" && phase === "work" && (
                   <button
                     onClick={handleEndEarly}
@@ -661,7 +600,7 @@ export default function CompactTimer() {
 
                 <div className="flex-1" />
 
-                {/* Host a Room — only when signed in */}
+                {/* Host a Room */}
                 {session && (
                   <button
                     onClick={() => setShowCreateRoom(true)}
@@ -694,7 +633,6 @@ export default function CompactTimer() {
                 </button>
               </div>
 
-              {/* Sign-in prompt */}
               {!session && (
                 <div className="px-5 pb-3 -mt-1">
                   <p className="text-[#A08060] text-xs text-center">
@@ -711,27 +649,20 @@ export default function CompactTimer() {
       {pendingInterruptPrompt && session?.user && (
         <InterruptPromptModal
           elapsedSeconds={pendingInterruptPrompt.session.actualDuration}
-          onCount={() => {
-            if (pendingInterruptPrompt.intentionId) {
-              fetch(`/api/intentions/${pendingInterruptPrompt.intentionId}/skip`, { method: "POST" }).catch(() => {});
-            }
-            resolveInterruptPrompt(true);
-          }}
+          onCount={() => resolveInterruptPrompt(true)}
           onDiscard={() => resolveInterruptPrompt(false)}
         />
       )}
-      {pendingReflection && intentionId && session?.user && intentionsEnabled && (
+      {pendingReflection && taskList.length > 0 && sessionGroupId && session?.user && intentionsEnabled && (
         <IntentionReflectionModal
-          intentionId={intentionId}
-          intentionText={currentIntention}
+          tasks={taskList}
+          sessionGroupId={sessionGroupId}
           sessionId={lastCompletedSessionId}
-          onClose={() => {
-            setPendingReflection(false);
-            setIntentionId(null);
-            clearCurrentIntention();
-          }}
+          mode="solo"
+          onClose={handleReflectionClose}
         />
       )}
+      {/* No tasks but reflection pending — cleared via useEffect below */}
       <Settings
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}

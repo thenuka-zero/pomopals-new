@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import type { Intention } from "@/lib/types";
+import { groupIntoSessionBlocks, type SessionBlock } from "@/lib/intention-utils";
 
 type StatusFilter = "all" | "completed" | "not_completed" | "skipped";
 
@@ -11,13 +12,6 @@ const STATUS_ICONS: Record<string, string> = {
   not_completed: "❌",
   skipped: "↩️",
   pending: "⏳",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  completed: "Completed",
-  not_completed: "Not Completed",
-  skipped: "Skipped",
-  pending: "Pending",
 };
 
 function formatTime(isoStr: string): string {
@@ -40,11 +34,11 @@ function formatDateHeader(dateStr: string): string {
   });
 }
 
-function groupByDate(items: Intention[]): Record<string, Intention[]> {
-  const groups: Record<string, Intention[]> = {};
-  for (const item of items) {
-    if (!groups[item.date]) groups[item.date] = [];
-    groups[item.date].push(item);
+function groupBlocksByDate(blocks: SessionBlock[]): Record<string, SessionBlock[]> {
+  const groups: Record<string, SessionBlock[]> = {};
+  for (const block of blocks) {
+    if (!groups[block.date]) groups[block.date] = [];
+    groups[block.date].push(block);
   }
   return groups;
 }
@@ -119,8 +113,9 @@ export default function IntentionsDashboardWidget() {
     }
   };
 
-  const grouped = groupByDate(intentions);
-  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  const blocks = groupIntoSessionBlocks(intentions);
+  const groupedByDate = groupBlocksByDate(blocks);
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
   return (
     <div className="bg-white border-2 border-[#F0E6D3] rounded-2xl p-5 shadow-sm">
@@ -174,62 +169,68 @@ export default function IntentionsDashboardWidget() {
               <h4 className="text-[10px] font-bold text-[#A08060] uppercase tracking-wide mb-1.5">
                 {formatDateHeader(date)}
               </h4>
-              <div className="space-y-1.5">
-                {grouped[date].map((item) => (
+              <div className="space-y-2">
+                {groupedByDate[date].map((block, blockIdx) => (
                   <div
-                    key={item.id}
-                    className="flex items-center justify-between py-2.5 px-3 bg-[#FDF6EC] border border-[#F0E6D3] rounded-xl hover:border-[#E0D0B8] transition-colors"
+                    key={block.sessionGroupId ?? `solo-${blockIdx}`}
+                    className="bg-[#FDF6EC] border border-[#F0E6D3] rounded-xl overflow-hidden"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <span className="text-sm shrink-0">
-                        {STATUS_ICONS[item.status]}
+                    {/* Session timestamp */}
+                    <div className="px-3 pt-2 pb-1">
+                      <span className="text-[10px] text-[#A08060]">
+                        {formatTime(block.startedAt)}
+                        {block.intentions.length > 1 && (
+                          <span className="ml-1.5 text-[#D0C0A0]">· {block.intentions.length} tasks</span>
+                        )}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-[#3D2C2C] truncate">
-                          {item.text}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-[#A08060]">
-                            {formatTime(item.startedAt)}
+                    </div>
+                    {/* Tasks */}
+                    {block.intentions.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between py-1.5 px-3 hover:border-[#E0D0B8] transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-sm shrink-0">
+                            {STATUS_ICONS[item.status]}
                           </span>
-                          <span className="text-[10px] text-[#D0C0A0]">·</span>
-                          <span className="text-[10px] text-[#A08060]">
-                            {STATUS_LABELS[item.status]}
-                          </span>
+                          <p className="text-sm text-[#3D2C2C] truncate">
+                            {item.text}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center ml-2">
+                          {confirmDeleteId === item.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => deleteIntention(item.id)}
+                                className="text-[10px] font-bold text-white bg-[#E54B4B] px-2 py-0.5 rounded-full hover:bg-[#D43D3D] transition-colors"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="text-[10px] font-bold text-[#8B7355] hover:text-[#3D2C2C] transition-colors"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(item.id)}
+                              className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+                              title="Delete task"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    <div className="shrink-0 flex items-center ml-2">
-                      {confirmDeleteId === item.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => deleteIntention(item.id)}
-                            className="text-[10px] font-bold text-white bg-[#E54B4B] px-2 py-0.5 rounded-full hover:bg-[#D43D3D] transition-colors"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="text-[10px] font-bold text-[#8B7355] hover:text-[#3D2C2C] transition-colors"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(item.id)}
-                          className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
-                          title="Delete intention"
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
+                    ))}
                   </div>
                 ))}
               </div>

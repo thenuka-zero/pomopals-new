@@ -287,7 +287,22 @@ export async function setParticipantIntention(roomId: string, userId: string, in
   if (!room) return undefined;
   const participant = room.participants.find((p) => p.id === userId);
   if (!participant) return undefined;
-  participant.intention = intention || undefined;
+  participant.tasks = intention ? [{ text: intention, status: "pending" }] : undefined;
+  touch(room);
+  await persistRoom(room);
+  return room;
+}
+
+export async function setParticipantTasks(
+  roomId: string,
+  userId: string,
+  tasks: Array<{ text: string; status: "pending" | "done" | "skipped" }>
+): Promise<Room | undefined> {
+  const room = await getRoom(roomId);
+  if (!room) return undefined;
+  const participant = room.participants.find((p) => p.id === userId);
+  if (!participant) return undefined;
+  participant.tasks = tasks.length ? tasks : undefined;
   touch(room);
   await persistRoom(room);
   return room;

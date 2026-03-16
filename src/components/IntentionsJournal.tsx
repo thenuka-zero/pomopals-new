@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import type { Intention, IntentionTrends } from "@/lib/types";
 import IntentionTrendsChart from "./IntentionTrendsChart";
+import { groupIntoSessionBlocks, type SessionBlock } from "@/lib/intention-utils";
 
 type StatusFilter = "all" | "completed" | "not_completed" | "skipped";
 
@@ -20,11 +21,11 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
 };
 
-function groupByDate(items: Intention[]): Record<string, Intention[]> {
-  const groups: Record<string, Intention[]> = {};
-  for (const item of items) {
-    if (!groups[item.date]) groups[item.date] = [];
-    groups[item.date].push(item);
+function groupBlocksByDate(blocks: SessionBlock[]): Record<string, SessionBlock[]> {
+  const groups: Record<string, SessionBlock[]> = {};
+  for (const block of blocks) {
+    if (!groups[block.date]) groups[block.date] = [];
+    groups[block.date].push(block);
   }
   return groups;
 }
@@ -145,8 +146,9 @@ export default function IntentionsJournal() {
     }
   };
 
-  const grouped = groupByDate(intentions);
-  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  const blocks = groupIntoSessionBlocks(intentions);
+  const groupedByDate = groupBlocksByDate(blocks);
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
   return (
     <div className="min-h-screen bg-[#FDF6EC]">
@@ -155,7 +157,7 @@ export default function IntentionsJournal() {
         <div>
           <h1 className="text-2xl font-bold text-[#3D2C2C]">Intentions Journal</h1>
           <p className="text-sm text-[#3D2C2C]/60 mt-1">
-            Track your focus intentions and reflect on your sessions.
+            Track your focus tasks and reflect on your sessions.
           </p>
         </div>
 
@@ -244,7 +246,7 @@ export default function IntentionsJournal() {
             <div className="text-4xl">🎯</div>
             <p className="text-[#3D2C2C] font-medium">No intentions yet</p>
             <p className="text-sm text-[#3D2C2C]/50">
-              Set an intention before your next Pomodoro session to start your journal.
+              Add tasks before your next Pomodoro session to start your journal.
             </p>
           </div>
         ) : (
@@ -254,89 +256,106 @@ export default function IntentionsJournal() {
                 <h3 className="text-xs font-semibold text-[#3D2C2C]/50 uppercase tracking-wider mb-2">
                   {formatDate(date)}
                 </h3>
-                <div className="space-y-2">
-                  {grouped[date].map((item) => {
-                    const isExpanded = expandedIds.has(item.id);
-                    const isLong = item.text.length > 100;
-                    const displayText =
-                      isLong && !isExpanded
-                        ? item.text.slice(0, 100) + "…"
-                        : item.text;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="group bg-white/60 rounded-xl px-4 py-3 border border-[#3D2C2C]/[0.08] hover:border-[#3D2C2C]/[0.15] transition-colors"
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-base mt-0.5 shrink-0">
-                            {STATUS_ICONS[item.status]}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-[#3D2C2C] leading-relaxed">
-                              {displayText}
-                              {isLong && (
-                                <button
-                                  onClick={() => toggleExpand(item.id)}
-                                  className="ml-1 text-[#E54B4B] hover:underline text-xs"
-                                >
-                                  {isExpanded ? "less" : "more"}
-                                </button>
-                              )}
-                            </p>
-                            {item.note && (
-                              <p className="text-xs text-[#3D2C2C]/50 mt-1 italic">
-                                {item.note}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-[#3D2C2C]/40">
-                                {formatTime(item.startedAt)}
-                              </span>
-                              <span className="text-xs text-[#3D2C2C]/30">·</span>
-                              <span className="text-xs text-[#3D2C2C]/40">
-                                {STATUS_LABELS[item.status]}
-                              </span>
-                            </div>
-                          </div>
-                          {/* Delete button */}
-                          <div className="shrink-0 flex items-center">
-                            {confirmDeleteId === item.id ? (
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-[#5C4033]">Delete?</span>
-                                <button
-                                  onClick={() => deleteIntention(item.id)}
-                                  className="px-2 py-0.5 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors"
-                                >
-                                  Yes
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteId(null)}
-                                  className="px-2 py-0.5 text-xs bg-[#F0E6D3] text-[#5C4033] rounded-full font-semibold hover:bg-[#E8D5C4] transition-colors"
-                                >
-                                  No
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setConfirmDeleteId(item.id)}
-                                className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
-                                title="Delete intention"
-                                aria-label="Delete intention"
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                  <path d="M10 11v6M14 11v6" />
-                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                <div className="space-y-3">
+                  {groupedByDate[date].map((block, blockIdx) => (
+                    <div
+                      key={block.sessionGroupId ?? `solo-${blockIdx}`}
+                      className="bg-white/60 rounded-xl border border-[#3D2C2C]/[0.08] overflow-hidden"
+                    >
+                      {/* Session header */}
+                      <div className="px-4 py-2 border-b border-[#3D2C2C]/[0.06] bg-[#F0E6D3]/30">
+                        <span className="text-xs text-[#3D2C2C]/50 font-medium">
+                          {formatTime(block.startedAt)}
+                          {block.intentions.length > 1 && (
+                            <span className="ml-2 text-[#D0C0A0]">
+                              {block.intentions.length} tasks
+                            </span>
+                          )}
+                        </span>
                       </div>
-                    );
-                  })}
+                      {/* Tasks */}
+                      <div className="divide-y divide-[#3D2C2C]/[0.04]">
+                        {block.intentions.map((item) => {
+                          const isExpanded = expandedIds.has(item.id);
+                          const isLong = item.text.length > 100;
+                          const displayText =
+                            isLong && !isExpanded
+                              ? item.text.slice(0, 100) + "…"
+                              : item.text;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="group px-4 py-3 hover:bg-[#F0E6D3]/20 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <span className="text-base mt-0.5 shrink-0">
+                                  {STATUS_ICONS[item.status]}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-[#3D2C2C] leading-relaxed">
+                                    {displayText}
+                                    {isLong && (
+                                      <button
+                                        onClick={() => toggleExpand(item.id)}
+                                        className="ml-1 text-[#E54B4B] hover:underline text-xs"
+                                      >
+                                        {isExpanded ? "less" : "more"}
+                                      </button>
+                                    )}
+                                  </p>
+                                  {item.note && (
+                                    <p className="text-xs text-[#3D2C2C]/50 mt-1 italic">
+                                      {item.note}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-[#3D2C2C]/40">
+                                      {STATUS_LABELS[item.status]}
+                                    </span>
+                                  </div>
+                                </div>
+                                {/* Delete button */}
+                                <div className="shrink-0 flex items-center">
+                                  {confirmDeleteId === item.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-[#5C4033]">Delete?</span>
+                                      <button
+                                        onClick={() => deleteIntention(item.id)}
+                                        className="px-2 py-0.5 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDeleteId(null)}
+                                        className="px-2 py-0.5 text-xs bg-[#F0E6D3] text-[#5C4033] rounded-full font-semibold hover:bg-[#E8D5C4] transition-colors"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmDeleteId(item.id)}
+                                      className="opacity-40 hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+                                      title="Delete task"
+                                      aria-label="Delete task"
+                                    >
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                        <path d="M10 11v6M14 11v6" />
+                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

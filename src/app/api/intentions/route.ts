@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { intentions } from "@/lib/db/schema";
-import { eq, and, gte, lte, desc, count } from "drizzle-orm";
+import { eq, and, gte, lte, desc, count, isNull } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
   const statusFilter = searchParams.get("status");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const sessionGroupId = searchParams.get("sessionGroupId");
 
   const validStatuses = ["pending", "completed", "not_completed", "skipped"];
 
@@ -85,6 +86,11 @@ export async function GET(request: NextRequest) {
   }
   if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
     conditions.push(lte(intentions.date, to));
+  }
+  if (sessionGroupId === "none") {
+    conditions.push(isNull(intentions.sessionGroupId));
+  } else if (sessionGroupId) {
+    conditions.push(eq(intentions.sessionGroupId, sessionGroupId));
   }
 
   const whereClause = and(...conditions);

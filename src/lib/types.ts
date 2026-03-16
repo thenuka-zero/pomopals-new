@@ -103,7 +103,17 @@ export interface Participant {
   id: string;
   name: string;
   joinedAt: string;
-  intention?: string;
+  tasks?: Array<{ text: string; status: "pending" | "done" | "skipped" }>;
+}
+
+// ─── Task List ────────────────────────────────────────────────────────────────
+
+export type TaskItemStatus = "pending" | "in_progress" | "done" | "skipped";
+
+export interface TaskItem {
+  id: string;          // client-generated UUID
+  text: string;
+  status: TaskItemStatus;
 }
 
 // ─── Friend Relationships ─────────────────────────────────────────────────────
@@ -176,6 +186,7 @@ export interface Intention {
   startedAt: string;       // ISO 8601
   reflectedAt: string | null;
   date: string;            // YYYY-MM-DD
+  sessionGroupId?: string | null;
   createdAt: string;
 }
 

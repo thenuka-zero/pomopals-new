@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { TimerSettings, TimerPhase, TimerStatus, PomodoroSession } from "@/lib/types";
+import { TimerSettings, TimerPhase, TimerStatus, PomodoroSession, TaskItem } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 export const MIN_PROMPT_ELAPSED_SECONDS = 60;
@@ -32,11 +32,14 @@ interface TimerState {
   hydratedAsExpired: boolean;
   isRemoteTransition: boolean;
 
-  // Intentions state
-  currentIntention: string;       // solo timer intention (persisted)
-  roomCurrentIntention: string;   // room intention (not persisted, isolated per tab)
+  // Task list state
+  taskList: TaskItem[];              // solo timer tasks (persisted)
+  sessionGroupId: string | null;     // persisted
+  roomTaskList: TaskItem[];          // room tasks (NOT persisted)
+  roomSessionGroupId: string | null; // NOT persisted
+
+  // Reflection state
   pendingReflection: boolean;
-  lastCompletedIntentionId: string | null;
   lastCompletedSessionId: string | null;
 
   // Room context for session recording
@@ -44,23 +47,29 @@ interface TimerState {
   roomParticipantCount: number | null;
 
   // Interrupt prompt state
-  pendingInterruptPrompt: { session: PomodoroSession; action: "skip" | "reset"; intentionId: string | null } | null;
+  pendingInterruptPrompt: { session: PomodoroSession; action: "skip" | "reset"; sessionGroupId: string | null } | null;
   resolveInterruptPrompt: (count: boolean) => void;
 
   // Actions
   start: () => void;
   pause: () => void;
   resume: () => void;
-  reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
-  skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; intentionId?: string | null }) => void;
+  reset: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; sessionGroupId?: string | null }) => void;
+  skip: (opts?: { deferAnalytics?: boolean; deferredSession?: PomodoroSession; sessionGroupId?: string | null }) => void;
   completeEarly: () => void;
   tick: () => void;
 
-  // Intentions actions
-  setCurrentIntention: (text: string) => void;
-  clearCurrentIntention: () => void;
-  setRoomCurrentIntention: (text: string) => void;
-  clearRoomCurrentIntention: () => void;
+  // Task list actions
+  addTask: (text: string) => void;
+  addRoomTask: (text: string) => void;
+  updateTaskStatus: (id: string, status: TaskItem["status"]) => void;
+  updateRoomTaskStatus: (id: string, status: TaskItem["status"]) => void;
+  removeTask: (id: string) => void;
+  removeRoomTask: (id: string) => void;
+  clearTaskList: () => void;
+  clearRoomTaskList: () => void;
+  setSessionGroupId: (id: string | null) => void;
+  setRoomSessionGroupId: (id: string | null) => void;
   setPendingReflection: (value: boolean) => void;
 
   // Room context
@@ -121,10 +130,11 @@ export const useTimerStore = create<TimerState>()(
       lastTransitionType: null,
       hydratedAsExpired: false,
       isRemoteTransition: false,
-      currentIntention: "",
-      roomCurrentIntention: "",
+      taskList: [],
+      sessionGroupId: null,
+      roomTaskList: [],
+      roomSessionGroupId: null,
       pendingReflection: false,
-      lastCompletedIntentionId: null,
       lastCompletedSessionId: null,
       roomId: null,
       roomParticipantCount: null,
@@ -141,12 +151,24 @@ export const useTimerStore = create<TimerState>()(
 
       start: () => {
         const now = Date.now();
-        set({
+        const state = get();
+        const updates: Partial<TimerState> = {
           status: "running",
           startedAt: now,
           elapsed: 0,
           currentSessionStart: now,
-        });
+        };
+        // Generate sessionGroupId if we have tasks and haven't started a group yet
+        if (state.taskList.length > 0 && !state.sessionGroupId) {
+          updates.sessionGroupId = crypto.randomUUID();
+        }
+        // Mark all pending tasks as in_progress when work session starts
+        if (state.phase === "work" && state.taskList.length > 0) {
+          updates.taskList = state.taskList.map((t) =>
+            t.status === "pending" ? { ...t, status: "in_progress" as const } : t
+          );
+        }
+        set(updates);
       },
 
       pause: () => {
@@ -172,6 +194,10 @@ export const useTimerStore = create<TimerState>()(
       reset: (opts) => {
         const state = get();
         const { settings } = state;
+        // Restore in_progress tasks back to pending on reset
+        const resetTaskList = state.taskList.map((t) =>
+          t.status === "in_progress" ? { ...t, status: "pending" as const } : t
+        );
         if (opts?.deferAnalytics && opts.deferredSession) {
           set({
             phase: "work",
@@ -184,7 +210,13 @@ export const useTimerStore = create<TimerState>()(
             currentSessionStart: null,
             lastTransitionType: "reset",
             isRemoteTransition: false,
-            pendingInterruptPrompt: { session: opts.deferredSession, action: "reset", intentionId: opts.intentionId ?? null },
+            taskList: resetTaskList,
+            sessionGroupId: null,
+            pendingInterruptPrompt: {
+              session: opts.deferredSession,
+              action: "reset",
+              sessionGroupId: opts.sessionGroupId ?? null,
+            },
           });
         } else {
           set({
@@ -198,6 +230,8 @@ export const useTimerStore = create<TimerState>()(
             currentSessionStart: null,
             lastTransitionType: "reset",
             isRemoteTransition: false,
+            taskList: resetTaskList,
+            sessionGroupId: null,
           });
         }
       },
@@ -208,7 +242,11 @@ export const useTimerStore = create<TimerState>()(
           set({
             lastTransitionType: "skipped",
             isRemoteTransition: false,
-            pendingInterruptPrompt: { session: opts.deferredSession, action: "skip", intentionId: opts.intentionId ?? null },
+            pendingInterruptPrompt: {
+              session: opts.deferredSession,
+              action: "skip",
+              sessionGroupId: opts.sessionGroupId ?? null,
+            },
           });
           transitionPhase(state, set, "skipped");
         } else {
@@ -242,11 +280,16 @@ export const useTimerStore = create<TimerState>()(
             set((s) => ({ sessions: [...s.sessions, session] }));
           }
         }
+        // Mark in_progress tasks as done on early completion
+        const updatedTaskList = state.taskList.map((t) =>
+          t.status === "in_progress" ? { ...t, status: "done" as const } : t
+        );
         set({
           lastTransitionType: "completed",
           isRemoteTransition: false,
           pendingReflection: true,
           lastCompletedSessionId: completedSessionId,
+          taskList: updatedTaskList,
         });
         transitionPhase(state, set);
       },
@@ -279,9 +322,16 @@ export const useTimerStore = create<TimerState>()(
             set((s) => ({ sessions: [...s.sessions, session] }));
           }
           set({ lastTransitionType: "completed", isRemoteTransition: false });
-          // When a work phase completes naturally (not skipped), mark pendingReflection
+          // When a work phase completes naturally, mark in_progress tasks as done
           if (state.phase === "work") {
-            set({ pendingReflection: true, lastCompletedSessionId: completedSessionId });
+            const updatedTaskList = state.taskList.map((t) =>
+              t.status === "in_progress" ? { ...t, status: "done" as const } : t
+            );
+            set({
+              pendingReflection: true,
+              lastCompletedSessionId: completedSessionId,
+              taskList: updatedTaskList,
+            });
           }
           transitionPhase(state, set);
         } else {
@@ -306,10 +356,37 @@ export const useTimerStore = create<TimerState>()(
         skipBroadcast = false;
       },
 
-      setCurrentIntention: (text) => set({ currentIntention: text }),
-      clearCurrentIntention: () => set({ currentIntention: "", lastCompletedIntentionId: null }),
-      setRoomCurrentIntention: (text) => set({ roomCurrentIntention: text }),
-      clearRoomCurrentIntention: () => set({ roomCurrentIntention: "" }),
+      // Task list actions
+      addTask: (text) => {
+        set((s) => ({
+          taskList: [...s.taskList, { id: crypto.randomUUID(), text, status: "pending" }],
+        }));
+      },
+      addRoomTask: (text) => {
+        set((s) => ({
+          roomTaskList: [...s.roomTaskList, { id: crypto.randomUUID(), text, status: "pending" }],
+        }));
+      },
+      updateTaskStatus: (id, status) => {
+        set((s) => ({
+          taskList: s.taskList.map((t) => (t.id === id ? { ...t, status } : t)),
+        }));
+      },
+      updateRoomTaskStatus: (id, status) => {
+        set((s) => ({
+          roomTaskList: s.roomTaskList.map((t) => (t.id === id ? { ...t, status } : t)),
+        }));
+      },
+      removeTask: (id) => {
+        set((s) => ({ taskList: s.taskList.filter((t) => t.id !== id) }));
+      },
+      removeRoomTask: (id) => {
+        set((s) => ({ roomTaskList: s.roomTaskList.filter((t) => t.id !== id) }));
+      },
+      clearTaskList: () => set({ taskList: [], sessionGroupId: null }),
+      clearRoomTaskList: () => set({ roomTaskList: [], roomSessionGroupId: null }),
+      setSessionGroupId: (id) => set({ sessionGroupId: id }),
+      setRoomSessionGroupId: (id) => set({ roomSessionGroupId: id }),
       setPendingReflection: (value) => set({ pendingReflection: value }),
       setRoomContext: (roomId, participantCount) => set({ roomId, roomParticipantCount: participantCount }),
     }),
@@ -325,13 +402,21 @@ export const useTimerStore = create<TimerState>()(
         startedAt: state.startedAt,
         elapsed: state.elapsed,
         currentSessionStart: state.currentSessionStart,
-        currentIntention: state.currentIntention,
+        taskList: state.taskList,
+        sessionGroupId: state.sessionGroupId,
         pendingReflection: state.pendingReflection,
-        lastCompletedIntentionId: state.lastCompletedIntentionId,
         lastCompletedSessionId: state.lastCompletedSessionId,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // Reset in_progress tasks to pending on page reload
+        if (state.taskList?.some((t) => t.status === "in_progress")) {
+          useTimerStore.setState({
+            taskList: state.taskList.map((t) =>
+              t.status === "in_progress" ? { ...t, status: "pending" as const } : t
+            ),
+          });
+        }
         if (state.status === "running" && state.startedAt) {
           const timeRemaining = computeTimeRemaining(
             state.phase, state.settings, state.status, state.startedAt, state.elapsed,

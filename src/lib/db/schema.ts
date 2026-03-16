@@ -132,6 +132,7 @@ export const intentions = sqliteTable("intentions", {
   startedAt: text("started_at").notNull(),
   reflectedAt: text("reflected_at"),
   date: text("date").notNull(),
+  sessionGroupId: text("session_group_id"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -139,6 +140,7 @@ export const intentions = sqliteTable("intentions", {
   index("idx_intentions_user_id").on(t.userId),
   index("idx_intentions_date").on(t.date),
   index("idx_intentions_user_date").on(t.userId, t.date),
+  index("idx_intentions_session_group").on(t.sessionGroupId),
 ]);
 
 // ─── Rooms ────────────────────────────────────────────────────────────────────

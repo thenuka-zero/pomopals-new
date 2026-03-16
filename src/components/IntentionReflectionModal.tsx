@@ -1,52 +1,80 @@
 "use client";
 
 import { useState } from "react";
-import { useTimerStore } from "@/store/timer-store";
+import type { TaskItem } from "@/lib/types";
 
 interface IntentionReflectionModalProps {
-  intentionId: string;
-  intentionText: string;
+  tasks: TaskItem[];
+  sessionGroupId: string | null;
   sessionId: string | null;
+  mode: "solo" | "room";
   onClose: () => void;
 }
 
+type TaskReflection = "done" | "skipped" | "pending";
+
 export default function IntentionReflectionModal({
-  intentionId,
-  intentionText,
+  tasks,
+  sessionGroupId: _sessionGroupId,
   sessionId,
   onClose,
 }: IntentionReflectionModalProps) {
-  const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
-  const clearCurrentIntention = useTimerStore((s) => s.clearCurrentIntention);
-
-  const [selectedStatus, setSelectedStatus] = useState<"completed" | "not_completed" | null>(null);
-  const [note, setNote] = useState("");
+  // Build initial reflections: tasks already done stay done, others default to pending
+  const [reflections, setReflections] = useState<Record<string, TaskReflection>>(() => {
+    const map: Record<string, TaskReflection> = {};
+    for (const t of tasks) {
+      map[t.id] = t.status === "done" ? "done" : "pending";
+    }
+    return map;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const reflectableTasks = tasks.filter((t) => t.status !== "skipped");
+
+  const handleToggle = (taskId: string) => {
+    setReflections((prev) => {
+      const current = prev[taskId];
+      return {
+        ...prev,
+        [taskId]: current === "done" ? "pending" : "done",
+      };
+    });
+  };
+
   const handleSubmit = async () => {
-    if (!selectedStatus) return;
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/intentions/${intentionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: selectedStatus,
-          sessionId,
-          note: note.trim() || undefined,
-          reflectedAt: new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to save reflection");
-      }
+      const now = new Date().toISOString();
+      // PATCH each task individually with its reflected status
+      await Promise.all(
+        reflectableTasks.map(async (task) => {
+          const reflection = reflections[task.id] ?? "pending";
+          // Map local status to DB status
+          const dbStatus =
+            reflection === "done" ? "completed" :
+            reflection === "skipped" ? "skipped" : "not_completed";
+          const res = await fetch(`/api/intentions/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: dbStatus,
+              sessionId,
+              reflectedAt: now,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            // 409 = already reflected, safe to ignore
+            if (res.status !== 409) {
+              throw new Error(data.error ?? "Failed to save reflection");
+            }
+          }
+        })
+      );
       setSubmitted(true);
-      setPendingReflection(false);
-      clearCurrentIntention();
       setTimeout(onClose, 800);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -56,7 +84,6 @@ export default function IntentionReflectionModal({
   };
 
   const handleSkip = () => {
-    setPendingReflection(false);
     onClose();
   };
 
@@ -82,70 +109,39 @@ export default function IntentionReflectionModal({
                 Session complete! 🍅
               </h2>
               <p className="text-sm text-[#3D2C2C]/60 mt-0.5">
-                How did your focus session go?
+                How did you do on your tasks?
               </p>
             </div>
 
-            {/* Intention text */}
-            <div className="px-4 py-3 rounded-xl bg-[#F0E6D3] border border-[#3D2C2C]/10">
-              <p className="text-xs text-[#3D2C2C]/50 mb-1 font-medium uppercase tracking-wide">
-                Your intention
-              </p>
-              <p className="text-sm text-[#3D2C2C] leading-relaxed">
-                {intentionText}
-              </p>
-            </div>
-
-            {/* Status buttons — toggle selection */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSelectedStatus("completed")}
-                disabled={submitting}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selectedStatus === "completed"
-                    ? "bg-green-100 border-green-400 text-green-800 ring-2 ring-green-300"
-                    : "bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                }`}
-              >
-                <span>✅</span>
-                <span>Completed</span>
-              </button>
-              <button
-                onClick={() => setSelectedStatus("not_completed")}
-                disabled={submitting}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selectedStatus === "not_completed"
-                    ? "bg-[#E54B4B]/15 border-[#E54B4B]/40 text-[#C0392B] ring-2 ring-[#E54B4B]/20"
-                    : "bg-[#F0E6D3] hover:bg-[#E54B4B]/10 border-[#3D2C2C]/15 text-[#3D2C2C]"
-                }`}
-              >
-                <span>❌</span>
-                <span>Not completed</span>
-              </button>
-            </div>
-
-            {/* Optional note */}
-            <div>
-              <label className="text-xs text-[#3D2C2C]/50 font-medium uppercase tracking-wide block mb-1.5">
-                Add a note (optional)
-              </label>
-              <div className="relative">
-                <textarea
-                  value={note}
-                  onChange={(e) => {
-                    if (e.target.value.length <= 500) setNote(e.target.value);
-                  }}
-                  placeholder="What went well? What got in the way?"
-                  rows={2}
-                  className="w-full px-3 py-2.5 rounded-lg text-sm bg-[#F0E6D3]/60 border border-[#3D2C2C]/20 text-[#3D2C2C] placeholder-[#3D2C2C]/40 focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/30 resize-none"
-                />
-                {note.length > 400 && (
-                  <span className="absolute bottom-2 right-3 text-xs text-[#3D2C2C]/40">
-                    {500 - note.length}
-                  </span>
-                )}
+            {/* Task list */}
+            {reflectableTasks.length > 0 ? (
+              <div className="space-y-2">
+                {reflectableTasks.map((task) => {
+                  const isDone = reflections[task.id] === "done";
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => handleToggle(task.id)}
+                      disabled={submitting}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors disabled:opacity-50 ${
+                        isDone
+                          ? "bg-green-50 border-green-300 text-green-800"
+                          : "bg-[#F0E6D3] border-[#3D2C2C]/15 text-[#3D2C2C] hover:border-[#3D2C2C]/30"
+                      }`}
+                    >
+                      <span className="text-base shrink-0">
+                        {isDone ? "✅" : "⬜"}
+                      </span>
+                      <span className={`text-sm flex-1 ${isDone ? "line-through opacity-70" : ""}`}>
+                        {task.text}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            ) : (
+              <p className="text-sm text-[#3D2C2C]/50 py-2">All tasks were already reflected.</p>
+            )}
 
             {/* Error */}
             {error && (
@@ -155,13 +151,15 @@ export default function IntentionReflectionModal({
             )}
 
             {/* Submit */}
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedStatus || submitting}
-              className="w-full py-3 rounded-xl bg-[#E54B4B] text-white font-semibold text-sm hover:bg-[#D43D3D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {submitting ? "Saving..." : "Submit reflection"}
-            </button>
+            {reflectableTasks.length > 0 && (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full py-3 rounded-xl bg-[#E54B4B] text-white font-semibold text-sm hover:bg-[#D43D3D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Saving..." : "Save reflection"}
+              </button>
+            )}
 
             {/* Skip link */}
             <div className="text-center">

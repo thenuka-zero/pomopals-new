@@ -56,7 +56,7 @@ export async function PATCH(
 
   const { status, sessionId, note, reflectedAt } = body;
 
-  if (status !== "completed" && status !== "not_completed") {
+  if (status !== "completed" && status !== "not_completed" && status !== "skipped") {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
   if (note !== undefined && note !== null && (typeof note !== "string" || note.length > 500)) {
@@ -82,8 +82,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, intention: existing });
   }
 
-  // Reject status change (e.g., completed -> not_completed)
-  if (existing.status !== "pending" && existing.status !== status) {
+  // Reject status change if already reflected (e.g., completed -> not_completed)
+  const isAlreadyReflected = existing.status !== "pending";
+  const isChangingStatus = existing.status !== status;
+  if (isAlreadyReflected && isChangingStatus) {
     return NextResponse.json(
       { error: "Cannot change reflected status" },
       { status: 409 }

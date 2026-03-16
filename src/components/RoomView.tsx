@@ -9,9 +9,10 @@ import { useSession } from "next-auth/react";
 import { v4 as uuidv4 } from "uuid";
 import Timer from "./Timer";
 import RoomJoinRequestBanner from "./RoomJoinRequestBanner";
-import IntentionInput from "./IntentionInput";
+import TaskList from "./TaskList";
 import IntentionReflectionModal from "./IntentionReflectionModal";
 import InterruptPromptModal from "./InterruptPromptModal";
+import type { TaskItem } from "@/lib/types";
 
 interface RoomViewProps {
   roomId: string;
@@ -34,15 +35,15 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const updateSettings = useTimerStore((s) => s.updateSettings);
   const setRoomContext = useTimerStore((s) => s.setRoomContext);
   const timerPhase = useTimerStore((s) => s.phase);
-  const currentIntention = useTimerStore((s) => s.roomCurrentIntention);
+  const roomTaskList = useTimerStore((s) => s.roomTaskList);
+  const roomSessionGroupId = useTimerStore((s) => s.roomSessionGroupId);
+  const setRoomSessionGroupId = useTimerStore((s) => s.setRoomSessionGroupId);
+  const clearRoomTaskList = useTimerStore((s) => s.clearRoomTaskList);
   const pendingReflection = useTimerStore((s) => s.pendingReflection);
-  const clearCurrentIntention = useTimerStore((s) => s.clearRoomCurrentIntention);
   const setPendingReflection = useTimerStore((s) => s.setPendingReflection);
   const lastCompletedSessionId = useTimerStore((s) => s.lastCompletedSessionId);
   const pendingInterruptPrompt = useTimerStore((s) => s.pendingInterruptPrompt);
   const resolveInterruptPrompt = useTimerStore((s) => s.resolveInterruptPrompt);
-  const [intentionId, setIntentionId] = useState<string | null>(null);
-  const intentionIdRef = useRef<string | null>(null);
   const [intentionsEnabled, setIntentionsEnabled] = useState(true);
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
@@ -50,18 +51,18 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const prevRoomPhase = useRef<TimerPhase | null>(null);
   const prevRoomTimeRemaining = useRef<number>(Infinity);
   const prevRoomStatus = useRef<string | null>(null);
-  const currentIntentionRef = useRef<string>("");
   const roomWorkSessionStartRef = useRef<number | null>(null);
   const isLeavingRef = useRef(false);
+  // Track whether we've saved the room session group to the API
+  const savedRoomSessionGroupRef = useRef<string | null>(null);
 
   const isAdmin = room?.hostId === userId;
   const isPrivilegedUser = isAdmin || (room?.coHostIds?.includes(userId) ?? false);
   const isAdminRef = useRef(false);
-  isAdminRef.current = isAdmin; // sync during render so beforeunload always sees latest value
+  isAdminRef.current = isAdmin;
 
-  currentIntentionRef.current = currentIntention; // sync during render
-  // Keep intentionIdRef in sync for use in callbacks
-  useEffect(() => { intentionIdRef.current = intentionId; }, [intentionId]);
+  // Debounce timer for syncing tasks to room
+  const syncTasksTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Set room context in timer store for session recording
   useEffect(() => {
@@ -69,7 +70,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       setRoomContext(roomId, room.participants.length);
     }
     return () => {
-      // Clear room context when leaving the room view
       setRoomContext(null, null);
     };
   }, [roomId, room?.participants.length, setRoomContext]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,18 +87,31 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       .catch(() => {});
   }, [session?.user]);
 
-  // Clear intentionId and intention text when leaving work phase and not pending reflection
+  // Clear room task list when leaving work phase and not pending reflection
   useEffect(() => {
     if (timerPhase !== "work" && !pendingReflection) {
-      setIntentionId(null);
-      clearCurrentIntention();
+      // Keep room tasks across phases (tasks persist)
     }
-    // Clear stuck pendingReflection if there's no active intention
-    if (pendingReflection && !intentionId && timerPhase !== "work") {
-      setPendingReflection(false);
-      clearCurrentIntention();
-    }
-  }, [timerPhase, pendingReflection, intentionId, clearCurrentIntention, setPendingReflection]);
+  }, [timerPhase, pendingReflection]);
+
+  const syncRoomTasks = useCallback((tasks: TaskItem[]) => {
+    if (!session?.user) return;
+    if (syncTasksTimerRef.current) clearTimeout(syncTasksTimerRef.current);
+    syncTasksTimerRef.current = setTimeout(() => {
+      fetch(`/api/rooms/${roomId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set-tasks",
+          userId,
+          tasks: tasks.map((t) => ({
+            text: t.text,
+            status: t.status === "done" ? "done" : t.status === "skipped" ? "skipped" : "pending",
+          })),
+        }),
+      }).catch(() => {});
+    }, 500);
+  }, [roomId, userId, session?.user]);
 
   const fetchJoinRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -129,15 +142,12 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       const data: RoomResponse = await res.json();
       setRoom(data);
       setFailCount(0);
-      // Sync room settings into local timer store so the progress circle and dots stay accurate
       updateSettings(data.settings);
 
       const newPhase = data.timerState.phase;
       const newTimeRemaining = data.timerState.timeRemaining;
 
-      // Detect natural phase transition: phase changed AND previous timeRemaining was near-zero.
-      // Threshold is 10s (not 3s) to handle polling jitter — with 1s polls the client can
-      // easily see 4–8 seconds remaining on its last read before the server transitions.
+      // Detect natural phase transition
       if (
         prevRoomPhase.current !== null &&
         prevRoomPhase.current !== newPhase &&
@@ -145,7 +155,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       ) {
         notifyPhaseComplete(prevRoomPhase.current, newPhase, { isRemote: false });
 
-        // Natural work session completion — record analytics and trigger reflection
+        // Natural work session completion
         if (prevRoomPhase.current === "work") {
           const workDuration = data.settings.workDuration * 60;
           const sessionId = uuidv4();
@@ -174,8 +184,14 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
               }),
             }).catch(() => {});
           }
-          if (intentionIdRef.current) {
+          // Trigger reflection if we have tasks
+          const s = useTimerStore.getState();
+          if (s.roomTaskList.length > 0 && s.roomSessionGroupId) {
+            // Mark in_progress tasks as done
             useTimerStore.setState({
+              roomTaskList: s.roomTaskList.map((t) =>
+                t.status === "in_progress" ? { ...t, status: "done" as const } : t
+              ),
               pendingReflection: true,
               lastCompletedSessionId: session?.user?.id ? sessionId : null,
             });
@@ -184,24 +200,29 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         }
       }
 
-      // Detect skip: phase changed while time was still > 10s remaining (mirrors threshold above)
-      const currentIntentionIdAtPoll = intentionIdRef.current;
+      // Detect skip: phase changed while time was still > 10s remaining
       if (
         prevRoomPhase.current === "work" &&
         prevRoomPhase.current !== newPhase &&
-        prevRoomTimeRemaining.current > 10 &&
-        currentIntentionIdAtPoll
+        prevRoomTimeRemaining.current > 10
       ) {
-        fetch(`/api/intentions/${currentIntentionIdAtPoll}/skip`, { method: "POST" }).catch(() => {});
-        intentionIdRef.current = null;
-        setIntentionId(null);
-        clearCurrentIntention();
+        // Batch-skip pending room tasks
+        const s = useTimerStore.getState();
+        if (s.roomSessionGroupId && session?.user) {
+          fetch("/api/intentions/batch-skip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionGroupId: s.roomSessionGroupId }),
+          }).catch(() => {});
+          useTimerStore.setState({ roomSessionGroupId: null });
+          savedRoomSessionGroupRef.current = null;
+        }
         roomWorkSessionStartRef.current = null;
       }
 
       const newStatus = data.timerState.status;
 
-      // Track work session start for all participants
+      // Track work session start
       if (
         newStatus === "running" &&
         newPhase === "work" &&
@@ -211,7 +232,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         roomWorkSessionStartRef.current = Date.now();
       }
 
-      // Non-privileged participants: save intention when room timer starts
+      // Non-privileged participants: save tasks when room timer starts
       if (
         !isAdminRef.current &&
         session?.user &&
@@ -220,21 +241,30 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         newStatus === "running" &&
         newPhase === "work"
       ) {
-        const text = currentIntentionRef.current.trim();
-        if (text && !intentionIdRef.current) {
-          const newId = crypto.randomUUID();
-          intentionIdRef.current = newId;
-          setIntentionId(newId);
-          fetch("/api/intentions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: newId,
-              text,
-              startedAt: new Date().toISOString(),
-              date: new Date().toISOString().slice(0, 10),
-            }),
-          }).catch(() => {});
+        const s = useTimerStore.getState();
+        const tasks = s.roomTaskList;
+        if (tasks.length > 0) {
+          let sgId = s.roomSessionGroupId;
+          if (!sgId) {
+            sgId = crypto.randomUUID();
+            useTimerStore.setState({ roomSessionGroupId: sgId });
+          }
+          if (savedRoomSessionGroupRef.current !== sgId) {
+            savedRoomSessionGroupRef.current = sgId;
+            fetch("/api/intentions/batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tasks: tasks.map((t) => ({
+                  id: t.id,
+                  text: t.text,
+                  startedAt: new Date().toISOString(),
+                  date: new Date().toISOString().slice(0, 10),
+                })),
+                sessionGroupId: sgId,
+              }),
+            }).catch(() => {});
+          }
         }
       }
 
@@ -245,14 +275,13 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       if (isLeavingRef.current) return;
       syncState(newPhase, newStatus, newTimeRemaining, data.timerState.pomodoroCount);
 
-      // Fetch join requests if the current user is the host
       if (data.hostId === userId) {
         fetchJoinRequests();
       }
     } catch {
       setFailCount((c) => c + 1);
     }
-  }, [roomId, syncState, updateSettings, notifyPhaseComplete, userId, fetchJoinRequests, clearCurrentIntention]);
+  }, [roomId, syncState, updateSettings, notifyPhaseComplete, userId, fetchJoinRequests, session?.user, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Join on mount
   useEffect(() => {
@@ -270,7 +299,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         });
         if (res.ok) {
           setJoined(true);
-          // Reclaim host if we were the host before a page refresh
           if (shouldReclaimHost) {
             await fetch(`/api/rooms/${roomId}`, {
               method: "POST",
@@ -308,21 +336,15 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     };
   }, [joined, fetchRoom]);
 
-  // Leave on unmount / tab close via sendBeacon
-  // Gated on `joined` to prevent firing during StrictMode remounts
+  // Leave on unmount / tab close
   useEffect(() => {
     if (!joined) return;
 
     const HOST_KEY = `pomopals-was-host-${roomId}-${userId}`;
-
-    // Track whether beforeunload already sent the leave beacon, to avoid
-    // a double-leave on page refresh (both beforeunload and React cleanup fire).
     let unloadBeaconSent = false;
 
     const handleBeforeUnload = () => {
       unloadBeaconSent = true;
-      // Persist host status so we can reclaim it after a page refresh.
-      // sessionStorage survives a refresh but is cleared when the tab closes.
       if (isAdminRef.current) {
         sessionStorage.setItem(HOST_KEY, "1");
       }
@@ -339,9 +361,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     return () => {
       isLeavingRef.current = true;
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Only fire the leave beacon for SPA navigation — beforeunload already
-      // handles page refresh/tab close, and a second leave would incorrectly
-      // strip co-host status by reassigning the temp host.
       if (!unloadBeaconSent) {
         navigator.sendBeacon(
           `/api/rooms/${roomId}`,
@@ -352,7 +371,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           new Blob([JSON.stringify({ isActive: false })], { type: "application/json" })
         );
       }
-      // Reset timer store so other pages show a clean solo timer
       const s = useTimerStore.getState();
       useTimerStore.setState({
         status: "idle",
@@ -360,7 +378,8 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
         timeRemaining: s.settings.workDuration * 60,
         startedAt: null,
         elapsed: 0,
-        roomCurrentIntention: "",
+        roomTaskList: [],
+        roomSessionGroupId: null,
         pendingReflection: false,
         lastCompletedSessionId: null,
         pendingInterruptPrompt: null,
@@ -371,7 +390,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     };
   }, [roomId, userId, joined]);
 
-  // Set presence when joined (only for authenticated users)
+  // Set presence when joined
   useEffect(() => {
     if (!joined || !session?.user?.id || !room) return;
     const currentPhase = room.timerState.phase;
@@ -430,21 +449,33 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
 
   const handleRoomStart = () => {
     roomWorkSessionStartRef.current = Date.now();
-    // Create intention if text is set and user is authenticated
-    if (currentIntention.trim() && session?.user) {
-      const newId = crypto.randomUUID();
-      setIntentionId(newId);
-      intentionIdRef.current = newId;
-      fetch("/api/intentions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: newId,
-          text: currentIntention.trim(),
-          startedAt: new Date().toISOString(),
-          date: new Date().toISOString().slice(0, 10),
-        }),
-      }).catch(() => {});
+    // Privileged user: generate room session group and batch-save tasks
+    if (session?.user && isPrivilegedUser) {
+      const s = useTimerStore.getState();
+      const tasks = s.roomTaskList;
+      if (tasks.length > 0) {
+        let sgId = s.roomSessionGroupId;
+        if (!sgId) {
+          sgId = crypto.randomUUID();
+          useTimerStore.setState({ roomSessionGroupId: sgId });
+        }
+        if (savedRoomSessionGroupRef.current !== sgId) {
+          savedRoomSessionGroupRef.current = sgId;
+          fetch("/api/intentions/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tasks: tasks.map((t) => ({
+                id: t.id,
+                text: t.text,
+                startedAt: new Date().toISOString(),
+                date: new Date().toISOString().slice(0, 10),
+              })),
+              sessionGroupId: sgId,
+            }),
+          }).catch(() => {});
+        }
+      }
     }
     requestPermission();
     unlockAudioContext();
@@ -452,15 +483,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   };
 
   const handleRoomSkip = () => {
-    const currentId = intentionIdRef.current;
-    if (currentId) {
-      fetch(`/api/intentions/${currentId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      intentionIdRef.current = null;
-      clearCurrentIntention();
-      roomWorkSessionStartRef.current = null;
-    }
-    // Check if we should prompt the user to count this interrupted session
+    // No task status changes on skip
     const s = useTimerStore.getState();
     if (
       session?.user?.id &&
@@ -483,7 +506,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           date: new Date().toISOString().split("T")[0],
         };
         sendAction("skip");
-        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "skip", intentionId: null } });
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "skip", sessionGroupId: s.roomSessionGroupId } });
         return;
       }
     }
@@ -491,38 +514,46 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   };
 
   const handleRoomReset = () => {
-    const currentId = intentionIdRef.current;
-    if (currentId) {
-      fetch(`/api/intentions/${currentId}/skip`, { method: "POST" }).catch(() => {});
-      setIntentionId(null);
-      intentionIdRef.current = null;
-      clearCurrentIntention();
+    // Batch-skip pending room tasks on reset
+    const s = useTimerStore.getState();
+    if (s.roomSessionGroupId && session?.user) {
+      fetch("/api/intentions/batch-skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionGroupId: s.roomSessionGroupId }),
+      }).catch(() => {});
+      useTimerStore.setState({
+        roomSessionGroupId: null,
+        roomTaskList: s.roomTaskList.map((t) =>
+          t.status === "in_progress" ? { ...t, status: "pending" as const } : t
+        ),
+      });
+      savedRoomSessionGroupRef.current = null;
     }
     roomWorkSessionStartRef.current = null;
-    // Check if we should prompt the user to count this interrupted session
-    const s = useTimerStore.getState();
+    const s2 = useTimerStore.getState();
     if (
       session?.user?.id &&
-      s.phase === "work" &&
-      s.currentSessionStart !== null &&
-      (s.status === "running" || s.status === "paused")
+      s2.phase === "work" &&
+      s2.currentSessionStart !== null &&
+      (s2.status === "running" || s2.status === "paused")
     ) {
-      const elapsed = s.settings.workDuration * 60 - s.timeRemaining;
+      const elapsed = s2.settings.workDuration * 60 - s2.timeRemaining;
       if (elapsed >= MIN_PROMPT_ELAPSED_SECONDS) {
         const deferredSession: PomodoroSession = {
           id: uuidv4(),
           userId: "",
-          startedAt: new Date(s.currentSessionStart).toISOString(),
+          startedAt: new Date(s2.currentSessionStart).toISOString(),
           endedAt: new Date().toISOString(),
           phase: "work",
-          plannedDuration: s.settings.workDuration * 60,
+          plannedDuration: s2.settings.workDuration * 60,
           actualDuration: elapsed,
           completed: false,
-          completionPercentage: Math.round((elapsed / (s.settings.workDuration * 60)) * 100),
+          completionPercentage: Math.round((elapsed / (s2.settings.workDuration * 60)) * 100),
           date: new Date().toISOString().split("T")[0],
         };
         sendAction("reset");
-        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "reset", intentionId: null } });
+        useTimerStore.setState({ pendingInterruptPrompt: { session: deferredSession, action: "reset", sessionGroupId: null } });
         return;
       }
     }
@@ -549,7 +580,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Error state
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -561,7 +591,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
     );
   }
 
-  // Loading state
   if (!room) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -624,32 +653,9 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
           onSkip={handleRoomSkip}
           controlSlot={
             session?.user && intentionsEnabled ? (
-              <IntentionInput
-                onConfirm={(text) => {
-                  // Update the room participant's intention display
-                  fetch(`/api/rooms/${roomId}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "set-intention", userId, intention: text }),
-                  }).catch(() => {});
-                  // Create an intention record if not already tracking one,
-                  // so the reflection modal fires when the session ends
-                  if (!intentionIdRef.current && session?.user) {
-                    const newId = crypto.randomUUID();
-                    setIntentionId(newId);
-                    intentionIdRef.current = newId;
-                    fetch("/api/intentions", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        id: newId,
-                        text,
-                        startedAt: new Date().toISOString(),
-                        date: new Date().toISOString().slice(0, 10),
-                      }),
-                    }).catch(() => {});
-                  }
-                }}
+              <TaskList
+                mode="room"
+                onSyncTasks={syncRoomTasks}
               />
             ) : undefined
           }
@@ -763,18 +769,30 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
             const isParticipantHost = p.id === room.hostId;
             const isParticipantCoHost = room.coHostIds.includes(p.id);
             const isMe = p.id === userId;
+            const tasks = p.tasks ?? [];
             return (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-[#F0E6D3] rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-[#E54B4B] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              <div key={p.id} className="flex items-start gap-3 px-4 py-3 bg-white border-2 border-[#F0E6D3] rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-[#E54B4B] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">
                   {p.name[0].toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <span className="text-[#3D2C2C] text-sm font-semibold truncate block">{p.name}</span>
-                  {p.intention && (
-                    <span className="text-xs text-[#8B7355] italic truncate block">💭 {p.intention}</span>
+                  {tasks.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {tasks.map((t, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <span className="text-xs">
+                            {t.status === "done" ? "✅" : t.status === "skipped" ? "↩️" : "⬜"}
+                          </span>
+                          <span className={`text-xs ${t.status === "done" ? "line-through text-[#A08060]" : "text-[#5C4033]"}`}>
+                            {t.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                <div className="ml-auto flex items-center gap-2 flex-shrink-0 mt-0.5">
                   {isParticipantHost && (
                     <span className="text-xs text-[#E54B4B] font-bold">Host</span>
                   )}
@@ -784,7 +802,6 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
                   {isMe && (
                     <span className="text-xs text-[#A08060] font-semibold">You</span>
                   )}
-                  {/* Host-only actions for other participants */}
                   {isAdmin && !isMe && (
                     <div className="flex items-center gap-1 ml-1">
                       {!isParticipantHost && (
@@ -850,19 +867,19 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
       )}
 
       {/* Intention reflection modal */}
-      {pendingReflection && intentionId && session?.user && intentionsEnabled && (
+      {pendingReflection && roomTaskList.length > 0 && roomSessionGroupId && session?.user && intentionsEnabled && (
         <IntentionReflectionModal
-          intentionId={intentionId}
-          intentionText={currentIntention}
+          tasks={roomTaskList}
+          sessionGroupId={roomSessionGroupId}
           sessionId={lastCompletedSessionId}
+          mode="room"
           onClose={() => {
             setPendingReflection(false);
-            setIntentionId(null);
-            intentionIdRef.current = null;
+            clearRoomTaskList();
+            savedRoomSessionGroupRef.current = null;
           }}
         />
       )}
     </>
   );
 }
-
