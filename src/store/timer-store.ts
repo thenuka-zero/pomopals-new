@@ -64,6 +64,8 @@ interface TimerState {
   addRoomTask: (text: string) => void;
   updateTaskStatus: (id: string, status: TaskItem["status"]) => void;
   updateRoomTaskStatus: (id: string, status: TaskItem["status"]) => void;
+  updateTaskText: (id: string, text: string) => void;
+  updateRoomTaskText: (id: string, text: string) => void;
   removeTask: (id: string) => void;
   removeRoomTask: (id: string) => void;
   clearTaskList: () => void;
@@ -375,6 +377,16 @@ export const useTimerStore = create<TimerState>()(
       updateRoomTaskStatus: (id, status) => {
         set((s) => ({
           roomTaskList: s.roomTaskList.map((t) => (t.id === id ? { ...t, status } : t)),
+        }));
+      },
+      updateTaskText: (id, text) => {
+        set((s) => ({
+          taskList: s.taskList.map((t) => (t.id === id ? { ...t, text } : t)),
+        }));
+      },
+      updateRoomTaskText: (id, text) => {
+        set((s) => ({
+          roomTaskList: s.roomTaskList.map((t) => (t.id === id ? { ...t, text } : t)),
         }));
       },
       removeTask: (id) => {

@@ -17,14 +17,23 @@ export default function TaskList({ mode, onSyncTasks, readOnly = false }: TaskLi
   const updateTaskStatus = useTimerStore((s) =>
     mode === "solo" ? s.updateTaskStatus : s.updateRoomTaskStatus
   );
+  const updateTaskText = useTimerStore((s) =>
+    mode === "solo" ? s.updateTaskText : s.updateRoomTaskText
+  );
   const phase = useTimerStore((s) => s.phase);
   const status = useTimerStore((s) => s.status);
 
   const [inputText, setInputText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const isWorkRunning = status === "running" && phase === "work";
-  const canEdit = !isWorkRunning && !readOnly;
+  // Add/remove only allowed when not actively running a work session
+  const canModifyList = !isWorkRunning && !readOnly;
+  // Text editing allowed any time (no pausing required)
+  const canEditText = !readOnly;
 
   const handleAdd = () => {
     const text = inputText.trim();
@@ -57,16 +66,43 @@ export default function TaskList({ mode, onSyncTasks, readOnly = false }: TaskLi
   };
 
   const handleRemove = (id: string) => {
-    if (!canEdit) return;
+    if (!canModifyList) return;
     removeTask(id);
     const updatedList = taskList.filter((t) => t.id !== id);
     onSyncTasks?.(updatedList);
   };
 
+  const handleEditStart = (task: TaskItem) => {
+    if (!canEditText) return;
+    setEditingId(task.id);
+    setEditingText(task.text);
+    // Focus the edit input on next render
+    setTimeout(() => editInputRef.current?.select(), 0);
+  };
+
+  const handleEditSave = (id: string) => {
+    const text = editingText.trim();
+    if (text && text.length <= 280 && text !== taskList.find((t) => t.id === id)?.text) {
+      updateTaskText(id, text);
+      const updatedList = taskList.map((t) => (t.id === id ? { ...t, text } : t));
+      onSyncTasks?.(updatedList);
+    }
+    setEditingId(null);
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleEditSave(id);
+    } else if (e.key === "Escape") {
+      setEditingId(null);
+    }
+  };
+
   return (
     <div className="w-full space-y-2">
       {/* Input row — only when not running work phase */}
-      {canEdit && (
+      {canModifyList && (
         <div className="flex gap-2 items-center">
           <input
             ref={inputRef}
@@ -120,30 +156,62 @@ export default function TaskList({ mode, onSyncTasks, readOnly = false }: TaskLi
                 </button>
               )}
 
-              {/* Text */}
-              <span
-                className={`flex-1 text-sm leading-snug ${
-                  task.status === "done"
-                    ? "line-through text-[#A08060]"
-                    : "text-[#3D2C2C]"
-                }`}
-              >
-                {task.text}
-              </span>
-
-              {/* Remove button */}
-              {canEdit && (
-                <button
-                  onClick={() => handleRemove(task.id)}
-                  title="Remove task"
-                  aria-label="Remove task"
-                  className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[#A08060] hover:text-[#E54B4B]"
+              {/* Text or inline edit input */}
+              {editingId === task.id ? (
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value.slice(0, 280))}
+                  onKeyDown={(e) => handleEditKeyDown(e, task.id)}
+                  onBlur={() => handleEditSave(task.id)}
+                  className="flex-1 text-sm bg-[#F0E6D3]/60 border border-[#E54B4B]/40 rounded px-1.5 py-0.5 text-[#3D2C2C] focus:outline-none focus:ring-2 focus:ring-[#E54B4B]/20"
+                  autoFocus
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => handleEditStart(task)}
+                  className={`flex-1 text-sm leading-snug ${
+                    task.status === "done"
+                      ? "line-through text-[#A08060]"
+                      : "text-[#3D2C2C]"
+                  }`}
                 >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+                  {task.text}
+                </span>
+              )}
+
+              {/* Action buttons (edit + remove) */}
+              {canEditText && editingId !== task.id && (
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Edit button */}
+                  <button
+                    onClick={() => handleEditStart(task)}
+                    title="Edit task"
+                    aria-label="Edit task"
+                    className="w-5 h-5 rounded flex items-center justify-center text-[#A08060] hover:text-[#3D2C2C]"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+
+                  {/* Remove button — only when not in running work phase */}
+                  {canModifyList && (
+                    <button
+                      onClick={() => handleRemove(task.id)}
+                      title="Remove task"
+                      aria-label="Remove task"
+                      className="w-5 h-5 rounded flex items-center justify-center text-[#A08060] hover:text-[#E54B4B]"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           ))}
