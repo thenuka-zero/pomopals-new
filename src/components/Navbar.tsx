@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
 import { useFriendsStore } from "@/store/friends-store";
-import InitialsAvatar from "./InitialsAvatar";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -110,9 +109,7 @@ export default function Navbar() {
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <NavLink href="/guide" active={pathname === "/guide"}>Guide</NavLink>
-                <span className="relative">
-                  <NavLink href="/leaderboard" active={pathname === "/leaderboard"} title="Leaderboard">🏅</NavLink>
-                </span>
+                <NavLink href="/leaderboard" active={pathname === "/leaderboard"} title="Leaderboard">🏅</NavLink>
                 {(session.user as { isAdmin?: boolean })?.isAdmin && (
                   <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
                 )}
@@ -139,9 +136,11 @@ export default function Navbar() {
                   )}
                 </Link>
                 <div className="flex items-center gap-3 ml-3">
-                  <span className="text-sm text-[#8B7355] font-semibold">Hey {session.user?.name?.split(' ')[0]} 👋</span>
-                  <Link href="/profile" title="Profile" className={`flex-shrink-0 w-[30px] h-[30px] rounded-full overflow-hidden transition-all ring-2 ${pathname === "/profile" ? "ring-[#E54B4B]" : "ring-transparent hover:ring-[#E54B4B]/40"}`}>
-                    <InitialsAvatar name={session.user?.name ?? "?"} size={30} />
+                  <Link
+                    href="/profile"
+                    className={`text-sm font-semibold transition-colors ${pathname === "/profile" ? "text-[#E54B4B]" : "text-[#8B7355] hover:text-[#E54B4B]"}`}
+                  >
+                    Hey {session.user?.name?.split(' ')[0]} 👋
                   </Link>
                   <button
                     onClick={() => signOut()}
