@@ -91,6 +91,16 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
+  const totalDuration = (() => {
+    switch (phase) {
+      case "work": return settings.workDuration * 60;
+      case "shortBreak": return settings.shortBreakDuration * 60;
+      case "longBreak": return settings.longBreakDuration * 60;
+    }
+  })();
+
+  const progress = ((totalDuration - timeRemaining) / totalDuration) * 100;
+
   const phaseLabel = (() => {
     switch (phase) {
       case "work": return "Pomodoro";
@@ -101,6 +111,11 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
 
   const isWork = phase === "work";
   const phaseColor = isWork ? "text-[#E54B4B]" : "text-[#6EAE3E]";
+  const progressStroke = isWork ? "#E54B4B" : "#6EAE3E";
+  const trackStroke = isWork ? "#F5D0D0" : "#D0EDBC";
+  const radius = 120;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   const handleStart = useCallback(() => {
     if (isRoomMode && onStart) onStart(); else start();
@@ -131,12 +146,29 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
       {/* Phase indicator */}
       <div className={`text-lg font-bold ${phaseColor}`}>{phaseLabel}</div>
 
-      {/* Timer display */}
-      <div className="flex flex-col items-center py-4">
-        <span className="text-7xl font-extrabold text-[#3D2C2C] tabular-nums font-mono">
-          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-        </span>
-        <span className="text-sm text-[#A08060] mt-3 font-semibold">Pomodoro #{pomodoroCount + 1}</span>
+      {/* Circular timer */}
+      <div className="relative w-72 h-72">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 280 280">
+          <circle cx="140" cy="140" r={radius} fill="none" stroke={trackStroke} strokeWidth="8" />
+          <circle
+            cx="140"
+            cy="140"
+            r={radius}
+            fill="none"
+            strokeWidth="8"
+            strokeLinecap="round"
+            stroke={progressStroke}
+            className="transition-all duration-1000 ease-linear"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-6xl font-extrabold text-[#3D2C2C] tabular-nums font-mono">
+            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+          </span>
+          <span className="text-sm text-[#A08060] mt-2 font-semibold">Pomodoro #{pomodoroCount + 1}</span>
+        </div>
       </div>
 
       {/* Controls + intention input */}

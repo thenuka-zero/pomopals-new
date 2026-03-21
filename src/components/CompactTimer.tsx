@@ -226,6 +226,16 @@ export default function CompactTimer() {
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
+  const totalDuration = (() => {
+    switch (phase) {
+      case "work": return settings.workDuration * 60;
+      case "shortBreak": return settings.shortBreakDuration * 60;
+      case "longBreak": return settings.longBreakDuration * 60;
+    }
+  })();
+
+  const progress = ((totalDuration - timeRemaining) / totalDuration) * 100;
+
   const phaseLabel = (() => {
     switch (phase) {
       case "work":
@@ -239,6 +249,11 @@ export default function CompactTimer() {
 
   const isWork = phase === "work";
   const phaseColorClass = isWork ? "text-[#E54B4B]" : "text-[#6EAE3E]";
+  const progressStroke = isWork ? "#E54B4B" : "#6EAE3E";
+  const trackStroke = isWork ? "#F5D0D0" : "#D0EDBC";
+  const compactRadius = 26;
+  const compactCircumference = 2 * Math.PI * compactRadius;
+  const compactStrokeDashoffset = compactCircumference - (progress / 100) * compactCircumference;
 
   const handleStart = useCallback(async () => {
     // start() in store: generates sessionGroupId and marks tasks in_progress
@@ -389,35 +404,32 @@ export default function CompactTimer() {
             flashPulse ? "border-[#E54B4B] shadow-[#E54B4B]/20" : "border-[#F0E6D3] shadow-[#3D2C2C]/5"
           }`}
         >
-          {/* Compact bar — grid: [left icon] [centered time] [play/pause] */}
-          <div className="grid grid-cols-[44px_1fr_44px] items-center px-5 py-4 gap-2">
-            {/* Left: task list toggle (or empty placeholder) */}
-            <div className="flex justify-start">
-              {showTaskIcon ? (
-                <button
-                  onClick={() => setShowTaskInput(!showTaskInput)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    showTaskInput || taskList.length > 0
-                      ? "bg-[#E54B4B]/10 text-[#E54B4B]"
-                      : "text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0]"
-                  }`}
-                  title="Manage tasks"
-                  aria-label="Manage tasks"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <polyline points="3 6 4 7 6 5" />
-                    <polyline points="3 12 4 13 6 11" />
-                    <polyline points="3 18 4 19 6 17" />
-                  </svg>
-                </button>
-              ) : <span />}
+          {/* Compact bar */}
+          <div className="flex items-center gap-4 px-5 py-4">
+            {/* Mini circular progress */}
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r={compactRadius} fill="none" stroke={trackStroke} strokeWidth="5" />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r={compactRadius}
+                  fill="none"
+                  stroke={progressStroke}
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={compactCircumference}
+                  strokeDashoffset={compactStrokeDashoffset}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className={`w-3 h-3 rounded-full ${isWork ? "bg-[#E54B4B]" : "bg-[#6EAE3E]"}`} />
+              </div>
             </div>
 
-            {/* Center: Time and phase label */}
-            <div className="flex flex-col items-center">
+            {/* Time and phase label */}
+            <div className="flex-1 min-w-0">
               <div className="text-3xl font-extrabold text-[#3D2C2C] tabular-nums font-mono leading-tight">
                 {String(minutes).padStart(2, "0")}:
                 {String(seconds).padStart(2, "0")}
@@ -430,8 +442,30 @@ export default function CompactTimer() {
               </div>
             </div>
 
-            {/* Right: Play/Pause button */}
-            <div className="flex justify-end">
+            {/* Task list toggle icon */}
+            {showTaskIcon && (
+              <button
+                onClick={() => setShowTaskInput(!showTaskInput)}
+                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                  showTaskInput || taskList.length > 0
+                    ? "bg-[#E54B4B]/10 text-[#E54B4B]"
+                    : "text-[#A08060] hover:text-[#E54B4B] hover:bg-[#FFF0F0]"
+                }`}
+                title="Manage tasks"
+                aria-label="Manage tasks"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <polyline points="3 6 4 7 6 5" />
+                  <polyline points="3 12 4 13 6 11" />
+                  <polyline points="3 18 4 19 6 17" />
+                </svg>
+              </button>
+            )}
+
+            {/* Play/Pause button */}
             <button
               onClick={handlePlayPause}
               className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
@@ -453,7 +487,6 @@ export default function CompactTimer() {
                 </svg>
               )}
             </button>
-            </div>
           </div>
 
           {/* Task list section */}
