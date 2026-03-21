@@ -50,3 +50,9 @@ agents/.env
 
 # Video generation output
 /output
+
+# Video generation scripts (work in progress, not deployed)
+/remotion
+/scripts
+/tsconfig.scripts.json
+/src/app/playlists

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Friend, FriendRequest } from "@/lib/types";
 import { useFriendsStore } from "@/store/friends-store";
+import JoinRequestModal from "@/components/JoinRequestModal";
 
 type Tab = "friends" | "add" | "requests";
 
@@ -18,6 +19,12 @@ interface SearchResult {
 interface Toast {
   message: string;
   type: "success" | "error";
+}
+
+interface ActiveFriendInfo {
+  roomId: string | null;
+  roomName: string | null;
+  phase: string | null;
 }
 
 export default function FriendsPage() {
@@ -37,8 +44,12 @@ export default function FriendsPage() {
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [newReqIds, setNewReqIds] = useState<Set<string>>(new Set());
   const [newlyAcceptedFriendIds, setNewlyAcceptedFriendIds] = useState<string[]>([]);
+  const [activeFriends, setActiveFriends] = useState<Map<string, ActiveFriendInfo>>(new Map());
+  const [joinTarget, setJoinTarget] = useState<{ roomId: string; roomName: string; hostName: string } | null>(null);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const activePollRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -68,6 +79,45 @@ export default function FriendsPage() {
       // ignore
     }
   }, []);
+
+  const fetchActiveFriends = useCallback(async () => {
+    try {
+      const res = await fetch("/api/friends/active");
+      if (!res.ok) return;
+      const data = await res.json();
+      const entries: Array<[string, ActiveFriendInfo]> = (data.activeFriends ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((f: any) => f.broadcastEnabled === true)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((f: any) => [
+          f.userId,
+          { roomId: f.roomId ?? null, roomName: f.roomName ?? null, phase: f.phase ?? null },
+        ]);
+      setActiveFriends(new Map(entries));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Poll active friends every 30s while the friends tab is active
+  useEffect(() => {
+    if (!session?.user || activeTab !== "friends") {
+      if (activePollRef.current) {
+        clearInterval(activePollRef.current);
+        activePollRef.current = null;
+      }
+      return;
+    }
+    fetchActiveFriends();
+    activePollRef.current = setInterval(fetchActiveFriends, 30_000);
+    return () => {
+      if (activePollRef.current) {
+        clearInterval(activePollRef.current);
+        activePollRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, session?.user]);
 
   // Load "New" ribbon IDs from localStorage on mount
   useEffect(() => {
@@ -305,6 +355,11 @@ export default function FriendsPage() {
           onConfirmUnfriend={setConfirmUnfriend}
           onUnfriend={unfriend}
           newlyAcceptedFriendIds={newlyAcceptedFriendIds}
+          activeFriends={activeFriends}
+          onJoin={(roomId, roomName, hostName) => {
+            setJoinTarget({ roomId, roomName, hostName });
+            setJoinModalOpen(true);
+          }}
         />
       )}
       {activeTab === "add" && (
@@ -330,6 +385,17 @@ export default function FriendsPage() {
           onReject={rejectRequest}
           onCancel={cancelRequest}
           newReqIds={newReqIds}
+        />
+      )}
+
+      {/* Join Request Modal */}
+      {joinModalOpen && joinTarget && (
+        <JoinRequestModal
+          isOpen={joinModalOpen}
+          onClose={() => setJoinModalOpen(false)}
+          roomId={joinTarget.roomId}
+          roomName={joinTarget.roomName}
+          hostName={joinTarget.hostName}
         />
       )}
 
@@ -381,6 +447,8 @@ function FriendsListTab({
   onConfirmUnfriend,
   onUnfriend,
   newlyAcceptedFriendIds,
+  activeFriends,
+  onJoin,
 }: {
   friends: Friend[];
   loadingAction: string | null;
@@ -388,6 +456,8 @@ function FriendsListTab({
   onConfirmUnfriend: (id: string | null) => void;
   onUnfriend: (userId: string, name: string) => void;
   newlyAcceptedFriendIds: string[];
+  activeFriends: Map<string, ActiveFriendInfo>;
+  onJoin: (roomId: string, roomName: string, hostName: string) => void;
 }) {
   if (friends.length === 0) {
     return (
@@ -408,6 +478,8 @@ function FriendsListTab({
         });
         const isConfirming = confirmUnfriend === friend.userId;
         const isLoading = loadingAction === friend.userId;
+        const activeInfo = activeFriends.get(friend.userId);
+        const isFocusing = activeInfo !== undefined;
 
         return (
           <div
@@ -423,10 +495,25 @@ function FriendsListTab({
                 {newlyAcceptedFriendIds.includes(friend.userId) && (
                   <span className="text-[9px] font-bold bg-[#E54B4B] text-white px-1.5 py-0.5 rounded-full leading-none">New</span>
                 )}
+                {isFocusing && (
+                  <span className="text-[9px] font-bold text-[#6EAE3E] bg-[#6EAE3E]/10 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+                    🍅 Focusing
+                  </span>
+                )}
               </p>
               <p className="text-xs text-[#A08060]">Friends since {since}</p>
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {isFocusing && activeInfo.roomId && !isConfirming && (
+                <button
+                  onClick={() =>
+                    onJoin(activeInfo.roomId!, activeInfo.roomName ?? "Room", friend.name)
+                  }
+                  className="px-3 py-1 text-xs bg-[#E54B4B] text-white rounded-full font-semibold hover:bg-[#D43D3D] transition-colors"
+                >
+                  Join
+                </button>
+              )}
               {isConfirming ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-[#5C4033]">Remove?</span>
