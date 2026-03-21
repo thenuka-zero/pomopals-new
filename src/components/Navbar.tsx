@@ -110,7 +110,9 @@ export default function Navbar() {
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <NavLink href="/guide" active={pathname === "/guide"}>Guide</NavLink>
-                <NavLink href="/leaderboard" active={pathname === "/leaderboard"}>🏅 Leaderboard</NavLink>
+                <span className="relative">
+                  <NavLink href="/leaderboard" active={pathname === "/leaderboard"} title="Leaderboard">🏅</NavLink>
+                </span>
                 {(session.user as { isAdmin?: boolean })?.isAdmin && (
                   <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
                 )}
