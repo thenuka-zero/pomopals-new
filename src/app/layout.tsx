@@ -10,9 +10,6 @@ import { headers } from "next/headers";
 export const metadata: Metadata = {
   title: "PomoPals — Pomodoro Timer with Friends! 🍅",
   description: "A cute collaborative Pomodoro timer. Focus together, track your progress, and stay productive with friends.",
-  icons: {
-    icon: "/favicon.svg",
-  },
   verification: {
     google: "yd_HMKEubj5ni_kIKgQpKXGznjWs60i1LcpoZfd1920",
   },
