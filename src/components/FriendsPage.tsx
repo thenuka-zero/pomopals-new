@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import type { Friend, FriendRequest } from "@/lib/types";
 import { useFriendsStore } from "@/store/friends-store";
 import JoinRequestModal from "@/components/JoinRequestModal";
@@ -486,12 +487,12 @@ function FriendsListTab({
             key={friend.userId}
             className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-[#F0E6D3] rounded-xl"
           >
-            <div className="w-10 h-10 rounded-full bg-[#E54B4B] flex items-center justify-center text-white font-bold flex-shrink-0">
+            <Link href={`/u/${friend.userId}`} className="w-10 h-10 rounded-full bg-[#E54B4B] flex items-center justify-center text-white font-bold flex-shrink-0 hover:opacity-80 transition-opacity">
               {initial}
-            </div>
+            </Link>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[#3D2C2C] truncate flex items-center gap-1.5">
-                {friend.name}
+                <Link href={`/u/${friend.userId}`} className="hover:text-[#E54B4B] transition-colors">{friend.name}</Link>
                 {newlyAcceptedFriendIds.includes(friend.userId) && (
                   <span className="text-[9px] font-bold bg-[#E54B4B] text-white px-1.5 py-0.5 rounded-full leading-none">New</span>
                 )}

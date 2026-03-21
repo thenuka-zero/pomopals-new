@@ -110,7 +110,7 @@ export default function Navbar() {
                 <NavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</NavLink>
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <NavLink href="/guide" active={pathname === "/guide"}>Guide</NavLink>
-                <NavLink href="/playlists" active={pathname === "/playlists"}>🎵 Playlists</NavLink>
+                <NavLink href="/leaderboard" active={pathname === "/leaderboard"}>🏅 Leaderboard</NavLink>
                 {(session.user as { isAdmin?: boolean })?.isAdmin && (
                   <NavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</NavLink>
                 )}
@@ -153,7 +153,7 @@ export default function Navbar() {
               <div className="flex items-center gap-2 ml-3">
                 <NavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</NavLink>
                 <NavLink href="/guide" active={pathname === "/guide"}>Guide</NavLink>
-                <NavLink href="/playlists" active={pathname === "/playlists"}>🎵 Playlists</NavLink>
+                <NavLink href="/leaderboard" active={pathname === "/leaderboard"}>🏅 Leaderboard</NavLink>
                 <button
                   onClick={() => { setModalMode("login"); setShowAuth(true); }}
                   className="px-4 py-1.5 text-sm font-bold text-[#E54B4B] border-2 border-[#E54B4B] rounded-full hover:bg-[#E54B4B]/10 transition-colors"
@@ -214,7 +214,7 @@ export default function Navbar() {
                 <MobileNavLink href="/analytics" active={pathname === "/analytics"}>Dashboard</MobileNavLink>
                 <MobileNavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</MobileNavLink>
                 <MobileNavLink href="/guide" active={pathname === "/guide"}>Guide</MobileNavLink>
-                <MobileNavLink href="/playlists" active={pathname === "/playlists"}>🎵 Playlists</MobileNavLink>
+                <MobileNavLink href="/leaderboard" active={pathname === "/leaderboard"}>🏅 Leaderboard</MobileNavLink>
                 {(session.user as { isAdmin?: boolean })?.isAdmin && (
                   <MobileNavLink href="/admin" active={pathname.startsWith("/admin")}>Admin</MobileNavLink>
                 )}
@@ -240,7 +240,7 @@ export default function Navbar() {
               <>
                 <MobileNavLink href="/library" active={pathname === "/library"}>Pom&apos;s Library</MobileNavLink>
                 <MobileNavLink href="/guide" active={pathname === "/guide"}>Guide</MobileNavLink>
-                <MobileNavLink href="/playlists" active={pathname === "/playlists"}>🎵 Playlists</MobileNavLink>
+                <MobileNavLink href="/leaderboard" active={pathname === "/leaderboard"}>🏅 Leaderboard</MobileNavLink>
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => { setModalMode("login"); setShowAuth(true); setMenuOpen(false); }}

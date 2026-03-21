@@ -132,11 +132,11 @@ export default function Timer({ onStart, onPause, onReset, onSkip, isRoomMode, i
       <div className={`text-lg font-bold ${phaseColor}`}>{phaseLabel}</div>
 
       {/* Timer display */}
-      <div className="flex flex-col items-center">
-        <span className="text-6xl font-extrabold text-[#3D2C2C] tabular-nums font-mono">
+      <div className="flex flex-col items-center py-4">
+        <span className="text-7xl font-extrabold text-[#3D2C2C] tabular-nums font-mono">
           {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
         </span>
-        <span className="text-sm text-[#A08060] mt-2 font-semibold">Pomodoro #{pomodoroCount + 1}</span>
+        <span className="text-sm text-[#A08060] mt-3 font-semibold">Pomodoro #{pomodoroCount + 1}</span>
       </div>
 
       {/* Controls + intention input */}

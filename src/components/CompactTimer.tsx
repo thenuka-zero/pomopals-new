@@ -391,9 +391,6 @@ export default function CompactTimer() {
         >
           {/* Compact bar */}
           <div className="flex items-center gap-4 px-5 py-4">
-            {/* Phase dot */}
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isWork ? "bg-[#E54B4B]" : "bg-[#6EAE3E]"}`} />
-
             {/* Time and phase label */}
             <div className="flex-1 min-w-0">
               <div className="text-3xl font-extrabold text-[#3D2C2C] tabular-nums font-mono leading-tight">

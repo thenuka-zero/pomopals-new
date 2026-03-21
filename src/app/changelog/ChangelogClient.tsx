@@ -38,14 +38,17 @@ const ROADMAP: { month: string; emoji: string; items: { title: string; descripti
       {
         title: "Feature & bug requests",
         description: "An in-app form to submit feature ideas and bug reports directly — no GitHub account required.",
+        completed: true,
       },
       {
         title: "Leaderboards",
         description: "Daily, weekly, and monthly leaderboards showing who's focused the most among your friends.",
+        completed: true,
       },
       {
         title: "Status broadcasting",
         description: "Opt-in setting to broadcast what you're working on, and proactively join a friend's active Pomodoro from your friends list.",
+        completed: true,
       },
     ],
   },

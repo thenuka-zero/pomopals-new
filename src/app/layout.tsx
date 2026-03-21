@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Navbar from "@/components/Navbar";
+import FeedbackButton from "@/components/FeedbackButton";
 import { auth } from "@/lib/auth";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { headers } from "next/headers";
@@ -50,6 +51,7 @@ export default async function RootLayout({
         <Providers session={session} nonce={nonce ?? ""}>
           <Navbar />
           <main>{children}</main>
+          <FeedbackButton />
         </Providers>
       </body>
       {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

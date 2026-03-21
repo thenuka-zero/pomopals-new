@@ -4,6 +4,22 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-21
+
+### Added
+- **Leaderboards** — `/leaderboard` page with daily, weekly, monthly, and all-time tabs ranking you and your friends by total focus minutes
+- **Public profile pages** — `/u/[userId]` shows a user's display name, focus stats, achievement count, and a 14-day activity heatmap
+- **Feedback form** — floating "Feedback" button on every page opens an in-app form to submit feature requests or bug reports (auto-creates a GitHub issue)
+- **Friends list activity** — the Friends page now shows 🍅 Focusing badges and "Join" buttons for friends who are currently in an active session
+
+### Changed
+- Auto-start is now two separate settings: **Auto-start breaks** (start break when Pomodoro finishes) and **Auto-start pomodoros** (start Pomodoro when break finishes)
+- Removed the circular progress ring from the timer — the numeric countdown is now the sole timer UI
+- Leaderboard link replaces Playlists in the navbar (playlists shipping separately after QA)
+
+### Fixed
+- Skipping a Pomodoro from session #1 no longer incorrectly triggers a long break
+
 ## [0.3.1] - 2026-03-17
 
 ### Added
