@@ -226,19 +226,6 @@ export default function CompactTimer() {
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
-  const totalDuration = (() => {
-    switch (phase) {
-      case "work":
-        return settings.workDuration * 60;
-      case "shortBreak":
-        return settings.shortBreakDuration * 60;
-      case "longBreak":
-        return settings.longBreakDuration * 60;
-    }
-  })();
-
-  const progress = ((totalDuration - timeRemaining) / totalDuration) * 100;
-
   const phaseLabel = (() => {
     switch (phase) {
       case "work":
@@ -251,14 +238,7 @@ export default function CompactTimer() {
   })();
 
   const isWork = phase === "work";
-  const progressStroke = isWork ? "#E54B4B" : "#6EAE3E";
-  const trackStroke = isWork ? "#F5D0D0" : "#D0EDBC";
   const phaseColorClass = isWork ? "text-[#E54B4B]" : "text-[#6EAE3E]";
-
-  const compactRadius = 28;
-  const compactCircumference = 2 * Math.PI * compactRadius;
-  const compactStrokeDashoffset =
-    compactCircumference - (progress / 100) * compactCircumference;
 
   const handleStart = useCallback(async () => {
     // start() in store: generates sessionGroupId and marks tasks in_progress
@@ -411,41 +391,8 @@ export default function CompactTimer() {
         >
           {/* Compact bar */}
           <div className="flex items-center gap-4 px-5 py-4">
-            {/* Mini circular progress */}
-            <div className="relative w-16 h-16 flex-shrink-0">
-              <svg
-                className="w-full h-full -rotate-90"
-                viewBox="0 0 64 64"
-              >
-                <circle
-                  cx="32"
-                  cy="32"
-                  r={compactRadius}
-                  fill="none"
-                  stroke={trackStroke}
-                  strokeWidth="5"
-                />
-                <circle
-                  cx="32"
-                  cy="32"
-                  r={compactRadius}
-                  fill="none"
-                  stroke={progressStroke}
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeDasharray={compactCircumference}
-                  strokeDashoffset={compactStrokeDashoffset}
-                  className="transition-all duration-1000 ease-linear"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    isWork ? "bg-[#E54B4B]" : "bg-[#6EAE3E]"
-                  }`}
-                />
-              </div>
-            </div>
+            {/* Phase dot */}
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isWork ? "bg-[#E54B4B]" : "bg-[#6EAE3E]"}`} />
 
             {/* Time and phase label */}
             <div className="flex-1 min-w-0">

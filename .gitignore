@@ -47,3 +47,6 @@ agents/.env
 *.db
 *.db-journal
 *.db-wal
+
+# Video generation output
+/output

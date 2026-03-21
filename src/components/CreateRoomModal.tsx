@@ -30,6 +30,7 @@ export default function CreateRoomModal({ isOpen, onClose, userId, userName, tim
     longBreakInterval: 4,
     notificationSound: "bell",
     autoStartBreaks: true,
+    autoStartPomodoros: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

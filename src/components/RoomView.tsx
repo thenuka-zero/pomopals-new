@@ -29,7 +29,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
   const [failCount, setFailCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState<RoomJoinRequest[]>([]);
   const [showRoomSettings, setShowRoomSettings] = useState(false);
-  const [draftSettings, setDraftSettings] = useState<{ workDuration: number; shortBreakDuration: number; longBreakDuration: number; longBreakInterval: number; autoStartBreaks: boolean } | null>(null);
+  const [draftSettings, setDraftSettings] = useState<{ workDuration: number; shortBreakDuration: number; longBreakDuration: number; longBreakInterval: number; autoStartBreaks: boolean; autoStartPomodoros: boolean } | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const syncState = useTimerStore((s) => s.syncState);
   const updateSettings = useTimerStore((s) => s.updateSettings);
@@ -681,6 +681,7 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
                   longBreakDuration: room.settings.longBreakDuration,
                   longBreakInterval: room.settings.longBreakInterval,
                   autoStartBreaks: room.settings.autoStartBreaks,
+                  autoStartPomodoros: room.settings.autoStartPomodoros ?? false,
                 });
               }
               setShowRoomSettings((v) => !v);
@@ -730,6 +731,16 @@ export default function RoomView({ roomId, userId, userName }: RoomViewProps) {
                   className={`w-10 h-6 rounded-full transition-colors relative ${draftSettings.autoStartBreaks ? "bg-[#E54B4B]" : "bg-[#E8D5C4]"}`}
                 >
                   <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${draftSettings.autoStartBreaks ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#5C4033] font-semibold">Auto-start Pomodoros</span>
+                <button
+                  onClick={() => setDraftSettings((d) => d ? { ...d, autoStartPomodoros: !d.autoStartPomodoros } : d)}
+                  className={`w-10 h-6 rounded-full transition-colors relative ${draftSettings.autoStartPomodoros ? "bg-[#E54B4B]" : "bg-[#E8D5C4]"}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${draftSettings.autoStartPomodoros ? "translate-x-5" : "translate-x-1"}`} />
                 </button>
               </div>
 

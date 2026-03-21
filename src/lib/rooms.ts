@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakInterval: 4,
   notificationSound: "bell",
   autoStartBreaks: true,
+  autoStartPomodoros: false,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────

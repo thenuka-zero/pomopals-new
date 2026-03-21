@@ -88,6 +88,7 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakInterval: 4,
   notificationSound: "bell",
   autoStartBreaks: false,
+  autoStartPomodoros: false,
 };
 
 function getDurationForPhase(phase: TimerPhase, settings: TimerSettings): number {
@@ -566,15 +567,17 @@ function transitionPhase(
   transitionType?: string,
 ) {
   const { phase, pomodoroCount, settings } = state;
-  const autoStart = settings.autoStartBreaks;
-  const now = autoStart ? Date.now() : null;
+  const autoStartBreaks = settings.autoStartBreaks;
+  const autoStartPomodoros = settings.autoStartPomodoros;
 
   if (phase === "work") {
-    const newCount = transitionType === "skipped" ? pomodoroCount : pomodoroCount + 1;
+    const newCount = pomodoroCount + 1;
+    const startBreak = autoStartBreaks;
+    const now = startBreak ? Date.now() : null;
     if (newCount % settings.longBreakInterval === 0) {
       set({
         phase: "longBreak",
-        status: autoStart ? "running" : "idle",
+        status: startBreak ? "running" : "idle",
         timeRemaining: settings.longBreakDuration * 60,
         pomodoroCount: newCount,
         currentSessionStart: null,
@@ -584,7 +587,7 @@ function transitionPhase(
     } else {
       set({
         phase: "shortBreak",
-        status: autoStart ? "running" : "idle",
+        status: startBreak ? "running" : "idle",
         timeRemaining: settings.shortBreakDuration * 60,
         pomodoroCount: newCount,
         currentSessionStart: null,
@@ -593,11 +596,13 @@ function transitionPhase(
       });
     }
   } else {
+    const startWork = autoStartPomodoros;
+    const now = startWork ? Date.now() : null;
     set({
       phase: "work",
-      status: autoStart ? "running" : "idle",
+      status: startWork ? "running" : "idle",
       timeRemaining: settings.workDuration * 60,
-      currentSessionStart: autoStart ? Date.now() : null,
+      currentSessionStart: startWork ? Date.now() : null,
       startedAt: now,
       elapsed: 0,
     });

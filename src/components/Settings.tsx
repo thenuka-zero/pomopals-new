@@ -142,9 +142,14 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         {/* Toggles */}
         <div className="space-y-2.5 border-t border-[#F0E6D3] pt-3">
           <ToggleRow
-            label="Auto-start next phase"
+            label="Auto-start breaks"
             checked={local.autoStartBreaks}
             onChange={() => setLocal({ ...local, autoStartBreaks: !local.autoStartBreaks })}
+          />
+          <ToggleRow
+            label="Auto-start pomodoros"
+            checked={local.autoStartPomodoros ?? false}
+            onChange={() => setLocal({ ...local, autoStartPomodoros: !local.autoStartPomodoros })}
           />
           {settingsLoaded ? (
             <ToggleRow label="Intentions" checked={intentionsEnabled} onChange={handleIntentionsToggle} color="#E54B4B" />

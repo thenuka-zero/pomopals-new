@@ -20,7 +20,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 // ── Roadmap data ────────────────────────────────────────────────────────────
 
-const ROADMAP: { month: string; emoji: string; items: { title: string; description: string }[] }[] = [
+const ROADMAP: { month: string; emoji: string; items: { title: string; description: string; completed?: boolean }[] }[] = [
   {
     month: "March 2026",
     emoji: "🌱",
@@ -28,10 +28,12 @@ const ROADMAP: { month: string; emoji: string; items: { title: string; descripti
       {
         title: "Profile pages",
         description: "Public profile pages for each account summarising their stats, achievements, and focus history.",
+        completed: true,
       },
       {
         title: "Profile settings",
         description: "A dedicated settings page to change email, password, display name, and notification preferences.",
+        completed: true,
       },
       {
         title: "Feature & bug requests",
@@ -116,23 +118,30 @@ function ChangelogSection({ entry, isLatest }: { entry: ChangelogEntry; isLatest
 // ── Roadmap components ──────────────────────────────────────────────────────
 
 function RoadmapSection({ section }: { section: typeof ROADMAP[number] }) {
+  const allDone = section.items.every((i) => i.completed);
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-2xl leading-none">{section.emoji}</span>
         <h2 className="text-lg font-extrabold text-[#3D2C2C]">{section.month}</h2>
-        <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E54B4B]/10 text-[#E54B4B] uppercase tracking-wide">
-          Coming soon
+        <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${allDone ? "bg-[#6EAE3E]/10 text-[#6EAE3E]" : "bg-[#E54B4B]/10 text-[#E54B4B]"}`}>
+          {allDone ? "Shipped" : "Coming soon"}
         </span>
       </div>
       <div className="space-y-3">
         {section.items.map((item, i) => (
-          <div key={i} className="bg-white border-2 border-[#F0E6D3] rounded-xl px-5 py-4 flex gap-3 items-start">
-            <span className="mt-0.5 w-5 h-5 rounded-full bg-[#F0E6D3] flex items-center justify-center flex-shrink-0">
-              <span className="w-2 h-2 rounded-full bg-[#A08060] block" />
+          <div key={i} className={`bg-white border-2 rounded-xl px-5 py-4 flex gap-3 items-start ${item.completed ? "border-[#6EAE3E]/30" : "border-[#F0E6D3]"}`}>
+            <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${item.completed ? "bg-[#6EAE3E]" : "bg-[#F0E6D3]"}`}>
+              {item.completed ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-[#A08060] block" />
+              )}
             </span>
             <div>
-              <p className="text-sm font-bold text-[#3D2C2C]">{item.title}</p>
+              <p className={`text-sm font-bold ${item.completed ? "text-[#6EAE3E]" : "text-[#3D2C2C]"}`}>{item.title}</p>
               <p className="text-xs text-[#8B7355] mt-0.5 leading-relaxed">{item.description}</p>
             </div>
           </div>

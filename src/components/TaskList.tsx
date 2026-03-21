@@ -134,7 +134,7 @@ export default function TaskList({ mode, onSyncTasks, readOnly = false }: TaskLi
           {taskList.map((task) => (
             <div
               key={task.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F0E6D3]/30 group transition-colors"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F0E6D3]/30 group transition-colors text-left"
             >
               {/* Checkbox */}
               {!readOnly && (

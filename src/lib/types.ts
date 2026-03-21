@@ -34,7 +34,8 @@ export interface TimerSettings {
   longBreakDuration: number; // in minutes
   longBreakInterval: number; // after how many pomodoros
   notificationSound: "none" | "bell" | "digital"; // NEW — default "none"
-  autoStartBreaks: boolean; // auto-start breaks and work phases — default true
+  autoStartBreaks: boolean; // auto-start breaks when a Pomodoro finishes
+  autoStartPomodoros: boolean; // auto-start Pomodoros when a break finishes
 }
 
 export type TimerPhase = "work" | "shortBreak" | "longBreak";

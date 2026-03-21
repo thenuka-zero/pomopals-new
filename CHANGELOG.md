@@ -4,6 +4,19 @@ All notable changes to PomoPals will be documented here.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-17
+
+### Added
+- **Profile pages** — a dedicated `/profile` page where users can view and update their display name, avatar, and account settings (change email, change password)
+
+### Fixed
+- Reflection modal no longer appears for users who have not verified their email — this prevented a "Failed to save reflection" error caused by the batch save endpoint rejecting unverified users
+- Added `emailVerified` check to the PATCH intentions endpoint for consistency with the batch save endpoint
+- Profile page no longer shows a blank screen — a `<Suspense>` boundary is now wrapping the client component that calls `useSearchParams()`, fixing a Next.js 15/16 hydration requirement
+- Profile page now shows a descriptive error message instead of silently rendering blank when the API fetch fails
+- Navbar avatar link no longer renders as a pill shape — added explicit `w-[30px] h-[30px]` dimensions to the `<Link>` element to override Tailwind v4's default `<a>` element sizing in flex containers
+- Task text in the task list now always renders left-aligned, even when the timer widget is inside a centred layout
+
 ## [0.3.0] - 2026-03-16
 
 ### Added
